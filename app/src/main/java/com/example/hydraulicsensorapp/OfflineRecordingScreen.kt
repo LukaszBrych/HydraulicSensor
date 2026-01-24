@@ -30,25 +30,112 @@ fun OfflineRecordingScreen(
     channelValues: List<String>,
     ranges: List<String>,
     connectionStatus: String,
+    isReadingLive: Boolean,
+    endValues: List<String>,
+    originalUnits: List<String>,
+    displayUnits: List<String>,
+    onQueryEndValues: () -> Unit,
     onRangeChange: (Int, String) -> Unit,
-    onStartRecording: (Int, Int, String, List<Boolean>, String, Int) -> Unit,
-    onStopRecording: () -> Unit,
-    onBack: () -> Unit
+    onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    onStartMeasurement: () -> Unit,
+    onStopMeasurement: () -> Unit,
+    onBack: () -> Unit,
+    onCommandTest: () -> Unit = {}  // Callback do ekranu testowego
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
+    var startCountdown by remember { mutableIntStateOf(0) }  // 0 = brak blokady, 3,2,1 = odliczanie
+    
+    // Countdown timer
+    LaunchedEffect(startCountdown) {
+        if (startCountdown > 0) {
+            kotlinx.coroutines.delay(1000)
+            startCountdown -= 1
+        }
+    }
 
     Scaffold(
         containerColor = Color.Black,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Hydraulic Sensor", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Text("Live Sensor Monitoring", style = MaterialTheme.typography.bodySmall, color = Color(0xFF94A3B8))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Kompaktowy status połączenia
+                        Surface(
+                            shape = CircleShape,
+                            color = if (connectionStatus.contains("Połączono")) Color(0xFF10B981) else Color(0xFF64748B),
+                            modifier = Modifier.size(8.dp)
+                        ) {}
+                        
+                        Column {
+                            Text("Hydraulic Sensor", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(
+                                if (connectionStatus.contains("Połączono")) "Połączono" else "Rozłączono",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (connectionStatus.contains("Połączono")) Color(0xFF10B981) else Color(0xFF94A3B8)
+                            )
+                        }
                     }
                 },
                 actions = {
+                    // Przycisk Połącz/Rozłącz
+                    if (!connectionStatus.contains("Połączono")) {
+                        TextButton(
+                            onClick = onConnect,
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF60A5FA))
+                        ) {
+                            Text("Połącz", style = MaterialTheme.typography.labelMedium)
+                        }
+                    } else {
+                        // Gdy połączony - pokaż przycisk Rozłącz oraz Start/Stop pomiarów
+                        TextButton(
+                            onClick = onDisconnect,
+                            enabled = !isReadingLive,  // Zablokuj gdy pomiary aktywne
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (!isReadingLive) Color(0xFFEF4444) else Color(0xFF64748B),
+                                disabledContentColor = Color(0xFF475569)
+                            )
+                        ) {
+                            Text("Rozłącz", style = MaterialTheme.typography.labelMedium)
+                        }
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        // Przycisk Start/Stop pomiarów
+                        if (!isReadingLive) {
+                            TextButton(
+                                onClick = onStartMeasurement,
+                                enabled = startCountdown == 0,  // Zablokuj podczas countdown
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = if (startCountdown == 0) Color(0xFF10B981) else Color(0xFF64748B),
+                                    disabledContentColor = Color(0xFF64748B)
+                                )
+                            ) {
+                                Text(
+                                    if (startCountdown > 0) startCountdown.toString() else "Start",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        } else {
+                            TextButton(
+                                onClick = onStopMeasurement,
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFBBF24))
+                            ) {
+                                Text("Stop", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                    
+                    // Przycisk Komendy
+                    IconButton(onClick = onCommandTest) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Komendy", tint = Color(0xFFCBD5E1))
+                    }
+                    
                     IconButton(onClick = { isMenuOpen = !isMenuOpen }) {
                         Icon(Icons.Outlined.Menu, contentDescription = "Menu", tint = Color(0xFFCBD5E1))
                     }
@@ -59,23 +146,18 @@ fun OfflineRecordingScreen(
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { onStartRecording(4,25,"pos",listOf(true,true,true,true,true,true),"10ms",1000) }) { Text("Start") }
-                    OutlinedButton(onClick = { onStopRecording() }) { Text("Stop") }
-                    OutlinedButton(onClick = onBack) { Text("Back") }
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(connectionStatus, color = Color(0xFF94A3B8), style = MaterialTheme.typography.labelSmall)
-                }
-
                 SensorGrid(
                     channelValues = channelValues,
                     ranges = ranges,
+                    endValues = endValues,
+                    originalUnits = originalUnits,
+                    displayUnits = displayUnits,
+                    onQueryEndValues = onQueryEndValues,
+                    isReadingLive = isReadingLive,
                     customInputs = customInputs,
                     onRangeChange = onRangeChange,
+                    onSendRangeSettings = onSendRangeSettings,
+                    onDialogClose = { startCountdown = 3 },  // Uruchom countdown po zamknięciu dialogu
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -91,8 +173,15 @@ fun OfflineRecordingScreen(
 fun SensorGrid(
     channelValues: List<String>,
     ranges: List<String>,
+    endValues: List<String>,
+    originalUnits: List<String>,
+    displayUnits: List<String>,
+    onQueryEndValues: () -> Unit,
+    isReadingLive: Boolean,
     customInputs: MutableList<String>,
     onRangeChange: (Int, String) -> Unit,
+    onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
+    onDialogClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -109,7 +198,14 @@ fun SensorGrid(
                 range = ranges.getOrElse(index){""},
                 index = index,
                 customInput = customInputs[index],
-                onRangeChange = { idx, v -> customInputs[idx] = v; onRangeChange(idx,v) }
+                endValues = endValues,
+                originalUnit = originalUnits.getOrElse(index) { "bar" },
+                displayUnit = displayUnits.getOrElse(index) { "bar" },
+                onQueryEndValues = onQueryEndValues,
+                isReadingLive = isReadingLive,
+                onRangeChange = { idx, v -> customInputs[idx] = v; onRangeChange(idx,v) },
+                onSendRangeSettings = onSendRangeSettings,
+                onDialogClose = onDialogClose
             )
         }
     }
@@ -122,21 +218,119 @@ fun SensorTile(
     range: String,
     index: Int,
     customInput: String,
-    onRangeChange: (Int,String) -> Unit
+    endValues: List<String>,
+    originalUnit: String,
+    displayUnit: String,
+    onQueryEndValues: () -> Unit,
+    isReadingLive: Boolean,
+    onRangeChange: (Int,String) -> Unit,
+    onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
+    onDialogClose: () -> Unit
 ) {
-    var dropdownExpanded by remember { mutableStateOf(false) }
-
-    val (options, unit) = when(id) {
-        "P1","P2","P3" -> listOf("10bar","60bar","250bar","400bar","600bar","Custom") to "bar"
-        "P4" -> listOf("125°C","500°C","Custom") to "°C"
-        "P5" -> listOf("605lpm","27lpm","1000lpm","0lpm","Custom") to "lpm"
-        "P6" -> listOf("394lpm","1291lpm","0.00lpm","6000U/m","Custom") to "U/m"
-        else -> listOf("Custom") to ""
+    var showRangeDialog by remember { mutableStateOf(false) }
+    
+    // Funkcja konwersji jednostek
+    fun convertValue(value: Float, fromUnit: String, toUnit: String): Float {
+        return when {
+            fromUnit == "bar" && toUnit == "psi" -> value * 14.5038f
+            fromUnit == "psi" && toUnit == "bar" -> value / 14.5038f
+            fromUnit == "bar" && toUnit == "MPa" -> value * 0.1f
+            fromUnit == "MPa" && toUnit == "bar" -> value * 10f
+            fromUnit == "psi" && toUnit == "MPa" -> value / 145.038f
+            fromUnit == "MPa" && toUnit == "psi" -> value * 145.038f
+            fromUnit == "C" && toUnit == "F" -> value * 1.8f + 32f
+            fromUnit == "F" && toUnit == "C" -> (value - 32f) / 1.8f
+            fromUnit == "lpm" && toUnit == "gpm" -> value * 0.264172f
+            fromUnit == "gpm" && toUnit == "lpm" -> value / 0.264172f
+            else -> value
+        }
+    }
+    
+    // Przechowuj 5 zakresów dla każdego sensora
+    val currentRanges = remember { 
+        mutableStateListOf(
+            when(id) {
+                "P1", "P2" -> "60 bar"
+                "P3" -> "P1-P2"
+                "P4" -> "125 C"
+                "P5" -> "50 lpm"
+                "P6" -> "50 lpm"
+                else -> "100 bar"
+            },
+            when(id) {
+                "P1", "P2", "P3" -> "250 bar"
+                "P4" -> "150 C"
+                "P5" -> "150 lpm"
+                "P6" -> "150 lpm"
+                else -> "200 bar"
+            },
+            when(id) {
+                "P1", "P2", "P3" -> "400 bar"
+                "P4" -> "200 C"
+                "P5" -> "300 lpm"
+                "P6" -> "P1*P5"
+                else -> "300 bar"
+            },
+            when(id) {
+                "P1", "P2", "P3" -> "600 bar"
+                "P4" -> "250 C"
+                "P5" -> "600 lpm"
+                "P6" -> "5000 rpm"
+                else -> "400 bar"
+            },
+            when(id) {
+                "P1", "P2", "P3" -> "1000 bar"
+                "P4" -> "300 C"
+                "P5" -> "1200 lpm"
+                "P6" -> "10000 rpm"
+                else -> "500 bar"
+            }
+        )
     }
 
+    val unit = range.split(" ").lastOrNull() ?: "bar"
+
     val display = rawValue.substringAfter(":").trim()
+    
+    // Konwertuj wartość z originalUnit na displayUnit software'owo
     val formatted = if(display=="---" || display.contains("brak czujnika")) display
-    else val2decimal(display.toDoubleOrNull() ?: 0.0, unit).toString()
+    else {
+        val originalValue = display.toDoubleOrNull() ?: 0.0
+        val convertedValue = if (originalUnit != displayUnit) {
+            val result = convertValue(originalValue.toFloat(), originalUnit, displayUnit).toDouble()
+            Log.d("SensorBox", "$id: Konwersja $originalValue $originalUnit → $result $displayUnit")
+            result
+        } else {
+            originalValue
+        }
+        val decimals = val2decimal(convertedValue, displayUnit)
+        decimals.toString()
+    }
+
+    // Dialog ustawień
+    if (showRangeDialog) {
+        RangeSettingsDialog(
+            sensorId = id,
+            currentRanges = currentRanges,
+            currentEndValue = endValues.getOrNull(index) ?: "---",
+            onQueryEndValues = onQueryEndValues,
+            onDismiss = { 
+                showRangeDialog = false
+                onDialogClose()  // Uruchom countdown po zamknięciu
+            },
+            onSave = { activeRangeIndex, newRanges, selectedUnit ->
+                // Aktualizuj zakresy lokalnie
+                currentRanges.clear()
+                currentRanges.addAll(newRanges)
+                
+                // Wywołaj callback z wybranym zakresem (aktywny zakres)
+                onRangeChange(index, newRanges[activeRangeIndex])
+                
+                // Wyślij do SensorBox przez BLE (z informacją o selectedUnit)
+                onSendRangeSettings(index, activeRangeIndex, newRanges, selectedUnit)
+            }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().height(200.dp),
@@ -151,33 +345,22 @@ fun SensorTile(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(id, color = Color(0xFFCBD5E1), style = MaterialTheme.typography.bodySmall)
-                Box {
-                    IconButton(onClick = { dropdownExpanded = true }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = Color(0xFF94A3B8))
-                    }
-                    DropdownMenu(expanded = dropdownExpanded, onDismissRequest = { dropdownExpanded = false }) {
-                        options.forEach { option ->
-                            if(option=="Custom"){
-                                DropdownMenuItem(text = { Text("Custom...") }, onClick = {
-                                    dropdownExpanded = false
-                                    val customValue = "1000" // domyślne
-                                    onRangeChange(index,"$customValue$unit")
-                                })
-                            } else {
-                                DropdownMenuItem(text = { Text(option) }, onClick = {
-                                    dropdownExpanded = false
-                                    onRangeChange(index,option)
-                                })
-                            }
-                        }
-                    }
+                IconButton(
+                    onClick = { showRangeDialog = true },
+                    enabled = !isReadingLive  // Zablokuj gdy pomiary aktywne
+                ) {
+                    Icon(
+                        Icons.Outlined.Settings, 
+                        contentDescription = "Range Settings", 
+                        tint = if (!isReadingLive) Color(0xFF94A3B8) else Color(0xFF475569)
+                    )
                 }
             }
 
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(formatted, style = MaterialTheme.typography.displayMedium, color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(8.dp))
-                Text(range, style = MaterialTheme.typography.titleMedium, color = Color(0xFF94A3B8))
+                Text(displayUnit.uppercase(), style = MaterialTheme.typography.titleMedium, color = Color(0xFF94A3B8))
             }
 
             Text(
