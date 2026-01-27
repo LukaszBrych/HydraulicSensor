@@ -172,7 +172,10 @@ class MainActivity : ComponentActivity() {
                         connectionStatus.value = "Połączono z SensorBox"
                         Log.d("SensorBox", "Connected to GATT, status=$status")
                         if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                            gatt.discoverServices()
+                            // Zwiększ MTU do 512 aby pomieścić długie komendy jak 'sr'
+                            Log.d("SensorBox", "Requesting MTU=512...")
+                            gatt.requestMtu(512)
+                            // discoverServices będzie wywołane w onMtuChanged
                         }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
@@ -184,6 +187,19 @@ class MainActivity : ComponentActivity() {
                         notificationSet = false
                     }
                 }
+            }
+        }
+        
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            super.onMtuChanged(gatt, mtu, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d("SensorBox", "✅ MTU zmienione na: $mtu bajtów")
+            } else {
+                Log.w("SensorBox", "⚠️ MTU request failed, używam domyślnego (23 bajty)")
+            }
+            // Kontynuuj z discovery
+            if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                gatt.discoverServices()
             }
         }
 
@@ -266,9 +282,64 @@ class MainActivity : ComponentActivity() {
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             val raw = characteristic.value ?: return
+            
+            // Obsługa danych binarnych (download offline data)
+            if (isDownloadingBinary) {
+                binaryBuffer.addAll(raw.toList())
+                
+                // Sprawdź czy dotarł koniec transmisji '&'
+                if (binaryBuffer.lastOrNull()?.toInt()?.toChar() == '&') {
+                    isDownloadingBinary = false
+                    // Usuń znak '&' z końca
+                    binaryBuffer.removeAt(binaryBuffer.size - 1)
+                    
+                    // Wywołaj callback z danymi
+                    val data = parseBinaryData(binaryBuffer, currentEndValue)
+                    binaryCallback?.invoke(data)
+                    binaryCallback = null
+                    binaryBuffer.clear()
+                }
+                return
+            }
+            
             val text = String(raw)
             buffer += text
             Log.d("SensorBox", "Odebrano RAW: $text (buffer: ${buffer.length} znaków)")
+            
+            // Obsługa odpowiedzi tekstowych (checkOfflineMode, getOfflineHeader)
+            if (isWaitingForResponse) {
+                responseBuffer.append(text)
+                
+                // Dla 'm' - pojedynczy znak 'N' lub 'R'
+                if (isWaitingForSingleChar) {
+                    val content = responseBuffer.toString()
+                    if (content.contains('N') || content.contains('R')) {
+                        isWaitingForResponse = false
+                        isWaitingForSingleChar = false
+                        val response = responseBuffer.toString()
+                        responseCallback?.invoke(response)
+                        responseCallback = null
+                        responseBuffer.clear()
+                        return
+                    }
+                }
+                // Dla 'sh' - wieloliniowa odpowiedź zakończona słowem "end"
+                else if (responseBuffer.contains("end")) {
+                    isWaitingForResponse = false
+                    val response = responseBuffer.toString()
+                    responseCallback?.invoke(response)
+                    responseCallback = null
+                    responseBuffer.clear()
+                    return
+                }
+            }
+            
+            // Detekcja 'r' jako potwierdzenie startu recording (jak w Python)
+            if (isWaitingForRecordingStart && text.contains('r')) {
+                isWaitingForRecordingStart = false
+                Log.d("SensorBox", "✅ Otrzymano 'r' - Recording rozpoczęty!")
+                return
+            }
 
             // NAJPIERW sprawdź odpowiedzi komend 'e', 'p', etc. (PRZED ramkami pomiarowymi!)
             if (buffer.contains("#") && buffer.count { it == '#' } >= 7) {
@@ -488,12 +559,36 @@ class MainActivity : ComponentActivity() {
                             onStartMeasurement = { startLiveRead() },
                             onStopMeasurement = { stopLiveRead() },
                             onBack = { finish() },
-                            onCommandTest = { currentScreen = "commands" }
+                            onCommandTest = { currentScreen = "commands" },
+                            onOfflineConfig = { currentScreen = "offlineConfig" },
+                            onDownloadData = { currentScreen = "downloadData" }
                         )
                         
                         "commands" -> CommandTestScreen(
                             activity = this@MainActivity,
                             onBack = { currentScreen = "main" }
+                        )
+                        
+                        "offlineConfig" -> OfflineRecordingConfigScreen(
+                            onBack = { currentScreen = "main" },
+                            onStartRecording = { rc, tc, th, edge, samples, tbFactor ->
+                                startOfflineRecording(rc, tc, th, edge, samples, tbFactor)
+                            },
+                            onStopRecording = { stopOfflineRecording() }
+                        )
+                        
+                        "downloadData" -> DownloadOfflineDataScreen(
+                            onBackClick = { currentScreen = "main" },
+                            onCheckMode = { callback -> checkOfflineMode(callback) },
+                            onGetHeader = { callback -> getOfflineHeader(callback) },
+                            onDownloadChannel = { channel, endValue, callback ->
+                                downloadChannelData(channel, endValue, callback)
+                            },
+                            onSaveCSV = { header, data, filename, callback ->
+                                saveToCSV(header, data, filename, callback)
+                            },
+                            onStopRecording = { stopOfflineRecording() },
+                            onClearMemory = { callback -> clearOfflineMemory(callback) }
                         )
                     }
                 }
@@ -878,6 +973,343 @@ class MainActivity : ComponentActivity() {
                 value<1000 -> String.format("%.1f",value)
                 else -> value.toInt().toString()
             }
+        }
+    }
+    
+    // === OFFLINE RECORDING ===
+    
+    /**
+     * Start Offline Recording - wysyła komendę 'sr' do SensorBox
+     * Format: sr <timestamp> <rc> <tc> <th> <ed> <du> <fac>
+     * 
+     * @param recordingChannels "110100" - które kanały P1-P6 zapisywać
+     * @param triggerChannel 1-6 - który kanał monitorować
+     * @param triggerThreshold 0-100 - próg wyzwolenia w %
+     * @param triggerEdge 0=rising, 1=falling
+     * @param nrOfSamples liczba próbek do zapisania
+     * @param timeBaseFactor 1=1ms, 10=10ms, 100=100ms, 1000=1s, 10000=10s
+     */
+    fun startOfflineRecording(
+        recordingChannels: String,
+        triggerChannel: Int,
+        triggerThreshold: Int,
+        triggerEdge: Int,
+        nrOfSamples: Int,
+        timeBaseFactor: Int
+    ) {
+        Log.d("SensorBox", "⭐ startOfflineRecording wywołana - START")
+        gatt?.let { g ->
+            Log.d("SensorBox", "⭐ GATT OK, notifications=$notificationsEnabled")
+            if (!notificationsEnabled) {
+                Log.w("SensorBox", "BLE nie połączony, nie można rozpocząć offline recording")
+                return
+            }
+            
+            // Zatrzymaj live read jeśli aktywny
+            Log.d("SensorBox", "⭐ isReadingLive=${isReadingLive.value}")
+            if (isReadingLive.value) {
+                Log.d("SensorBox", "⏹️ Zatrzymuję Live Read przed Offline Recording...")
+                stopLiveRead()
+                Thread.sleep(800)
+            }
+            
+            // WAŻNE: Wyślij 'q' DWUKROTNIE aby wyczyścić stan SensorBox
+            // Python robi: write(q) -> sleep(1) -> read_until('\n')
+            Log.d("SensorBox", "🛑 Wysyłam 'q' (x2) aby zatrzymać poprzednie operacje...")
+            
+            enqueueWrite(g, "q\n")
+            handler.postDelayed({
+                enqueueWrite(g, "q\n")  // Drugi raz dla pewności
+                Log.d("SensorBox", "🛑 Wysłano drugie 'q'")
+            }, 500)
+            
+            // Czekaj 2.5 sekundy żeby SensorBox się uspokoił
+            handler.postDelayed({
+                Log.d("SensorBox", "🧹 Delay zakończony, wysyłam 'sr'...")
+                
+                // Oblicz duration w sekundach
+                val durationSeconds = (nrOfSamples * timeBaseFactor) / 1000
+                
+                // Timestamp (epoch time)
+                val timestamp = System.currentTimeMillis() / 1000
+                
+                // Buduj komendę sr
+                val cmd = "sr $timestamp $recordingChannels $triggerChannel $triggerThreshold $triggerEdge $durationSeconds $timeBaseFactor\n"
+                
+                Log.d("SensorBox", "🔴 Rozpoczynam Offline Recording:")
+                Log.d("SensorBox", "  Kanały: $recordingChannels")
+                Log.d("SensorBox", "  Trigger: P$triggerChannel >= $triggerThreshold% (edge=$triggerEdge)")
+                Log.d("SensorBox", "  Próbek: $nrOfSamples, Time base: ${timeBaseFactor}ms")
+                Log.d("SensorBox", "  Duration: ${durationSeconds}s")
+                Log.d("SensorBox", "  Komenda: $cmd")
+                
+                // Ustaw flagę przed wysłaniem - czekamy na 'r'
+                isWaitingForRecordingStart = true
+                enqueueWrite(g, cmd)
+                
+                // Python sprawdza czy przyszło 'r' jako potwierdzenie
+                // Odpowiedź 'r' przyjdzie przez onCharacteristicChanged
+                handler.postDelayed({
+                    if (isWaitingForRecordingStart) {
+                        Log.w("SensorBox", "⚠️ Nie otrzymano 'r' - Recording może nie wystartować")
+                        isWaitingForRecordingStart = false
+                    }
+                }, 3000) // timeout 3s
+            }, 2500) // 2.5s żeby SensorBox się wyczścił po dwóch 'q'
+        }
+    }
+    
+    /**
+     * Stop Offline Recording - wysyła komendę 'q' aby przerwać zapis
+     */
+    fun stopOfflineRecording() {
+        gatt?.let { g ->
+            enqueueWrite(g, "q\n")
+            Log.d("SensorBox", "🛑 Zatrzymano Offline Recording")
+        }
+    }
+    
+    /**
+     * Próba wyczyszczenia pamięci Offline Recording w SensorBox
+     * Testuje różne komendy: we (factory reset), c, d, clear, del, clr
+     */
+    fun clearOfflineMemory(callback: (Boolean) -> Unit) {
+        gatt?.let { g ->
+            Log.d("SensorBox", "🗑️ Próba wyczyszczenia pamięci...")
+            
+            // Najpierw zatrzymaj recording
+            enqueueWrite(g, "q\n")
+            
+            // we = factory reset ranges (może wyczyścić pamięć offline)
+            enqueueWrite(g, "we\n")
+            Log.d("SensorBox", "Wysłano: we (factory reset)")
+            
+            // Spróbuj innych komend czyszczenia
+            val clearCommands = listOf("c", "d", "clear", "del", "clr", "reset")
+            
+            for (cmd in clearCommands) {
+                enqueueWrite(g, "$cmd\n")
+                Log.d("SensorBox", "Wysłano: $cmd")
+            }
+            
+            // Poczekaj i callback
+            handler.postDelayed({
+                callback(true)
+            }, 2000)
+        } ?: callback(false)
+    }
+
+    // ==================== OFFLINE DATA DOWNLOAD ====================
+    
+    // Buffer do zbierania odpowiedzi z SensorBox
+    private val responseBuffer = StringBuilder()
+    private var isWaitingForResponse = false
+    private var isWaitingForSingleChar = false  // Dla komendy 'm' (N/R)
+    private var isWaitingForRecordingStart = false  // Dla komendy 'sr' (oczekiwanie na 'r')
+    private var responseCallback: ((String) -> Unit)? = null
+    
+    // Buffer do zbierania danych binarnych
+    private val binaryBuffer = mutableListOf<Byte>()
+    private var isDownloadingBinary = false
+    private var currentEndValue = 100f  // endValue dla aktualnie pobieranego kanału
+    private var binaryCallback: ((List<Float>) -> Unit)? = null
+    
+    /**
+     * Sprawdź tryb pracy SensorBox: 'N' (normal) lub 'R' (recording)
+     */
+    fun checkOfflineMode(callback: (Char?) -> Unit) {
+        gatt?.let { g ->
+            responseBuffer.clear()
+            isWaitingForResponse = true
+            isWaitingForSingleChar = true
+            responseCallback = { response ->
+                // Znajdź pierwszy 'N' lub 'R' w odpowiedzi
+                val mode = response.firstOrNull { it == 'N' || it == 'R' }
+                Log.d("SensorBox", "📡 Mode check response='$response' → mode=$mode")
+                callback(mode)
+            }
+            enqueueWrite(g, "m\n")
+            
+            // Timeout po 2 sekundach
+            handler.postDelayed({
+                if (isWaitingForResponse) {
+                    isWaitingForResponse = false
+                    isWaitingForSingleChar = false
+                    responseCallback = null
+                    callback(null)
+                }
+            }, 2000)
+        } ?: callback(null)
+    }
+    
+    /**
+     * Pobierz nagłówek offline recording (parametry)
+     * Zwraca Map z kluczami: ts, rc, tc, th, ed, du, tb, e1-e4, u1-u4, end
+     */
+    fun getOfflineHeader(callback: (Map<String, String>?) -> Unit) {
+        gatt?.let { g ->
+            responseBuffer.clear()
+            isWaitingForResponse = true
+            responseCallback = { response ->
+                val header = parseOfflineHeader(response)
+                Log.d("SensorBox", "📄 Header parsed: ${header.size} fields")
+                callback(header)
+            }
+            enqueueWrite(g, "sh\n")
+            
+            // Timeout po 3 sekundach
+            handler.postDelayed({
+                if (isWaitingForResponse) {
+                    isWaitingForResponse = false
+                    responseCallback = null
+                    callback(null)
+                }
+            }, 3000)
+        } ?: callback(null)
+    }
+    
+    /**
+     * Parsuj nagłówek offline recording
+     * Format: klucz wartość (każda para w osobnej linii)
+     * ts 1746266216
+     * t0 0
+     * rc 1111
+     * tc 4
+     * ...
+     */
+    private fun parseOfflineHeader(response: String): Map<String, String> {
+        val lines = response.trim().split("\n")
+        val header = mutableMapOf<String, String>()
+        
+        Log.d("SensorBox", "📄 Parsing header, ${lines.size} lines")
+        
+        for (line in lines) {
+            val parts = line.trim().split(" ", limit = 2)
+            if (parts.size == 2) {
+                val key = parts[0]
+                val value = parts[1]
+                header[key] = value
+                Log.d("SensorBox", "  $key = $value")
+            }
+        }
+        
+        return header
+    }
+    
+    /**
+     * Pobierz dane z kanału (1-4)
+     * Dane są binarne, zakończone znakiem '&'
+     */
+    fun downloadChannelData(channel: Int, endValue: Float, callback: (List<Float>?) -> Unit) {
+        if (channel !in 1..4) {
+            callback(null)
+            return
+        }
+        
+        gatt?.let { g ->
+            // Wyczyść WSZYSTKIE bufory przed pobraniem
+            binaryBuffer.clear()
+            responseBuffer.clear()
+            isDownloadingBinary = true
+            currentEndValue = endValue  // Zapisz dla onCharacteristicChanged
+            binaryCallback = { data ->
+                Log.d("SensorBox", "📦 Downloaded ${data.size} samples from P$channel")
+                callback(data)
+            }
+            
+            Log.d("SensorBox", "🔽 Requesting channel $channel data...")
+            enqueueWrite(g, "sd$channel\n")
+            
+            // Timeout po 30 sekundach (dla dużych transferów)
+            handler.postDelayed({
+                if (isDownloadingBinary) {
+                    isDownloadingBinary = false
+                    val data = parseBinaryData(binaryBuffer, currentEndValue)
+                    binaryCallback?.invoke(data)
+                    binaryCallback = null
+                }
+            }, 30000)
+        } ?: callback(null)
+    }
+    
+    /**
+     * Dekoduj dane binarne do wartości fizycznych
+     * Format: każdy bajt = (value - 40.0) / 1.6 → 0-100%
+     * Potem: physical_value = percentage * endValue / 100
+     */
+    private fun parseBinaryData(bytes: List<Byte>, endValue: Float): List<Float> {
+        return bytes.map { byte ->
+            val unsigned = byte.toInt() and 0xFF
+            val percentage = (unsigned - 40.0f) / 1.6f
+            val physicalValue = percentage * endValue / 100f
+            physicalValue
+        }
+    }
+    
+    /**
+     * Zapisz dane do pliku CSV
+     */
+    fun saveToCSV(
+        header: Map<String, String>,
+        data: Map<Int, List<Float>>, // channel -> values
+        filename: String,
+        callback: (Boolean, String?) -> Unit
+    ) {
+        try {
+            val contentResolver = contentResolver
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, 
+                    android.os.Environment.DIRECTORY_DOWNLOADS + "/HydraulicSensorApp")
+            }
+            
+            val uri = contentResolver.insert(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+            
+            uri?.let { fileUri ->
+                contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+                    val writer = outputStream.bufferedWriter()
+                    
+                    // Nagłówek CSV
+                    writer.write("# SensorBox MC6600 Offline Recording\n")
+                    writer.write("# Timestamp: ${header["ts"]}\n")
+                    writer.write("# Recording Channels: ${header["rc"]}\n")
+                    writer.write("# Trigger: P${header["tc"]} threshold=${header["th"]}% edge=${header["ed"]}\n")
+                    writer.write("# Duration: ${header["du"]}s, Time Base: ${header["tb"]}ms\n")
+                    writer.write("# End Values: P1=${header["e1"]} P2=${header["e2"]} P3=${header["e3"]} P4=${header["e4"]}\n")
+                    writer.write("# Units: P1=${header["u1"]} P2=${header["u2"]} P3=${header["u3"]} P4=${header["u4"]}\n")
+                    writer.write("# Total Samples: ${header["end"]}\n")
+                    writer.write("\n")
+                    
+                    // Nagłówek kolumn
+                    val channels = data.keys.sorted()
+                    writer.write("Sample")
+                    channels.forEach { ch -> writer.write(",P$ch") }
+                    writer.write("\n")
+                    
+                    // Dane
+                    val maxSamples = data.values.maxOfOrNull { it.size } ?: 0
+                    for (i in 0 until maxSamples) {
+                        writer.write("$i")
+                        channels.forEach { ch ->
+                            val value = data[ch]?.getOrNull(i) ?: 0f
+                            writer.write(",%.3f".format(value))
+                        }
+                        writer.write("\n")
+                    }
+                    
+                    writer.flush()
+                    Log.d("SensorBox", "💾 Saved CSV: $filename")
+                    callback(true, fileUri.toString())
+                }
+            } ?: callback(false, "Failed to create file")
+            
+        } catch (e: Exception) {
+            Log.e("SensorBox", "❌ Error saving CSV: ${e.message}")
+            callback(false, e.message)
         }
     }
 }

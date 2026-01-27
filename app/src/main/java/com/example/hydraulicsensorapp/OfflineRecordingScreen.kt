@@ -42,7 +42,9 @@ fun OfflineRecordingScreen(
     onStartMeasurement: () -> Unit,
     onStopMeasurement: () -> Unit,
     onBack: () -> Unit,
-    onCommandTest: () -> Unit = {}  // Callback do ekranu testowego
+    onCommandTest: () -> Unit = {},  // Callback do ekranu testowego
+    onOfflineConfig: () -> Unit = {},  // Callback do Offline Recording Config
+    onDownloadData: () -> Unit = {}  // Callback do pobierania offline data
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
@@ -134,6 +136,16 @@ fun OfflineRecordingScreen(
                     // Przycisk Komendy
                     IconButton(onClick = onCommandTest) {
                         Icon(Icons.Outlined.Settings, contentDescription = "Komendy", tint = Color(0xFFCBD5E1))
+                    }
+                    
+                    // Przycisk Offline Recording Config
+                    IconButton(onClick = onOfflineConfig) {
+                        Icon(Icons.Outlined.Menu, contentDescription = "Offline Recording", tint = Color(0xFFCBD5E1))
+                    }
+                    
+                    // Przycisk Download Offline Data
+                    TextButton(onClick = onDownloadData) {
+                        Text("📥", color = Color(0xFFCBD5E1))
                     }
                     
                     IconButton(onClick = { isMenuOpen = !isMenuOpen }) {
@@ -292,6 +304,27 @@ fun SensorTile(
 
     val display = rawValue.substringAfter(":").trim()
     
+    // Konwertuj zakres (range) z originalUnit na displayUnit
+    val displayedRange = if (range.isNotBlank()) {
+        val parts = range.split(" ")
+        if (parts.size >= 2) {
+            val rangeValue = parts[0].toFloatOrNull() ?: 0f
+            val rangeUnit = parts[1]
+            
+            if (rangeUnit != displayUnit && originalUnit != displayUnit) {
+                // Konwertuj wartość zakresu
+                val convertedRangeValue = convertValue(rangeValue, rangeUnit, displayUnit)
+                "${convertedRangeValue.toInt()} ${displayUnit.uppercase()}"
+            } else {
+                "${rangeValue.toInt()} ${displayUnit.uppercase()}"
+            }
+        } else {
+            displayUnit.uppercase()
+        }
+    } else {
+        displayUnit.uppercase()
+    }
+    
     // Konwertuj wartość z originalUnit na displayUnit software'owo
     val formatted = if(display=="---" || display.contains("brak czujnika")) display
     else {
@@ -360,7 +393,7 @@ fun SensorTile(
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(formatted, style = MaterialTheme.typography.displayMedium, color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(8.dp))
-                Text(displayUnit.uppercase(), style = MaterialTheme.typography.titleMedium, color = Color(0xFF94A3B8))
+                Text(displayedRange, style = MaterialTheme.typography.titleMedium, color = Color(0xFF94A3B8))
             }
 
             Text(
