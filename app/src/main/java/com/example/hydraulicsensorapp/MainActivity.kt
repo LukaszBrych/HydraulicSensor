@@ -1027,19 +1027,24 @@ class MainActivity : ComponentActivity() {
             handler.postDelayed({
                 Log.d("SensorBox", "🧹 Delay zakończony, wysyłam 'sr'...")
                 
-                // Oblicz duration w sekundach
-                val durationSeconds = (nrOfSamples * timeBaseFactor) / 1000
+                // Parametr du (duration units) = liczba próbek / 500
+                // SensorBox używa du do określenia ile próbek zapisać
+                val durationUnits = nrOfSamples / 500
                 
                 // Timestamp (epoch time)
                 val timestamp = System.currentTimeMillis() / 1000
                 
                 // Buduj komendę sr
-                val cmd = "sr $timestamp $recordingChannels $triggerChannel $triggerThreshold $triggerEdge $durationSeconds $timeBaseFactor\n"
+                // Format: sr timestamp channels trigger_ch trigger_th edge du tb
+                val cmd = "sr $timestamp $recordingChannels $triggerChannel $triggerThreshold $triggerEdge $durationUnits $timeBaseFactor\n"
+                
+                // Oblicz faktyczny czas trwania dla info
+                val durationSeconds = (nrOfSamples * timeBaseFactor) / 1000.0
                 
                 Log.d("SensorBox", "🔴 Rozpoczynam Offline Recording:")
                 Log.d("SensorBox", "  Kanały: $recordingChannels")
                 Log.d("SensorBox", "  Trigger: P$triggerChannel >= $triggerThreshold% (edge=$triggerEdge)")
-                Log.d("SensorBox", "  Próbek: $nrOfSamples, Time base: ${timeBaseFactor}ms")
+                Log.d("SensorBox", "  Próbek: $nrOfSamples (du=$durationUnits), Time base: ${timeBaseFactor}ms")
                 Log.d("SensorBox", "  Duration: ${durationSeconds}s")
                 Log.d("SensorBox", "  Komenda: $cmd")
                 
@@ -1116,29 +1121,56 @@ class MainActivity : ComponentActivity() {
     
     /**
      * Sprawdź tryb pracy SensorBox: 'N' (normal) lub 'R' (recording)
+     * Python approach: send 'q q' first (double wake-up), wait longer, then send 'm'
+     * For tb>1ms, SensorBox needs more time to stabilize after recording
+     * Max attempts: 20 (dla długich nagrań 24h może potrzebować kilku minut)
      */
-    fun checkOfflineMode(callback: (Char?) -> Unit) {
+    fun checkOfflineMode(callback: (Char?) -> Unit, retryCount: Int = 0) {
         gatt?.let { g ->
-            responseBuffer.clear()
-            isWaitingForResponse = true
-            isWaitingForSingleChar = true
-            responseCallback = { response ->
-                // Znajdź pierwszy 'N' lub 'R' w odpowiedzi
-                val mode = response.firstOrNull { it == 'N' || it == 'R' }
-                Log.d("SensorBox", "📡 Mode check response='$response' → mode=$mode")
-                callback(mode)
-            }
-            enqueueWrite(g, "m\n")
+            Log.d("SensorBox", "🔍 Mode check attempt ${retryCount + 1}/20 - sending 'q q' wake-up...")
             
-            // Timeout po 2 sekundach
+            // Step 1: Send double 'q' to wake up SensorBox (like we do for start recording)
+            enqueueWrite(g, "q\n")
             handler.postDelayed({
-                if (isWaitingForResponse) {
-                    isWaitingForResponse = false
-                    isWaitingForSingleChar = false
-                    responseCallback = null
-                    callback(null)
-                }
-            }, 2000)
+                enqueueWrite(g, "q\n")  // Drugi raz dla pewności
+                
+                // Step 2: Wait 2 seconds (longer for tb>1ms), then send 'm'
+                handler.postDelayed({
+                    responseBuffer.clear()
+                    isWaitingForResponse = true
+                    isWaitingForSingleChar = true
+                    responseCallback = { response ->
+                        // Znajdź pierwszy 'N' lub 'R' w odpowiedzi
+                        val mode = response.firstOrNull { it == 'N' || it == 'R' }
+                        Log.d("SensorBox", "📡 Mode check response='$response' → mode=$mode (attempt ${retryCount + 1})")
+                        callback(mode)
+                    }
+                    
+                    Log.d("SensorBox", "📤 Sending 'm' command...")
+                    enqueueWrite(g, "m\n")
+                    
+                    // Step 3: Wait for response (timeout 5s - longer for tb>1ms)
+                    handler.postDelayed({
+                        if (isWaitingForResponse) {
+                            isWaitingForResponse = false
+                            isWaitingForSingleChar = false
+                            responseCallback = null
+                            
+                            // Retry if no response
+                            if (retryCount < 19) {  // 0-19 = 20 attempts total (dla długich nagrań 24h)
+                                Log.d("SensorBox", "⚠️ No response to 'm' command, retrying...")
+                                handler.postDelayed({
+                                    checkOfflineMode(callback, retryCount + 1)
+                                }, 1000)
+                            } else {
+                                Log.d("SensorBox", "❌ Mode check failed after 20 attempts - SensorBox not responding")
+                                Log.d("SensorBox", "💡 Tip: For long recordings (24h), try waiting even longer or power cycle")
+                                callback(null)
+                            }
+                        }
+                    }, 5000) // 5s timeout for 'm' response (was 3s)
+                }, 2000) // 2s after 'q q' before sending 'm' (was 1s)
+            }, 300) // 300ms between first and second 'q'
         } ?: callback(null)
     }
     
@@ -1199,6 +1231,7 @@ class MainActivity : ComponentActivity() {
     /**
      * Pobierz dane z kanału (1-4)
      * Dane są binarne, zakończone znakiem '&'
+     * Python approach: sleep(1) BEFORE sd command, sleep(1) AFTER
      */
     fun downloadChannelData(channel: Int, endValue: Float, callback: (List<Float>?) -> Unit) {
         if (channel !in 1..4) {
@@ -1217,33 +1250,53 @@ class MainActivity : ComponentActivity() {
                 callback(data)
             }
             
-            Log.d("SensorBox", "🔽 Requesting channel $channel data...")
-            enqueueWrite(g, "sd$channel\n")
+            Log.d("SensorBox", "🔽 Requesting channel $channel data (waiting 1s before command)...")
             
-            // Timeout po 30 sekundach (dla dużych transferów)
+            // Python: sleep(1) BEFORE sending sd command
             handler.postDelayed({
-                if (isDownloadingBinary) {
-                    isDownloadingBinary = false
-                    val data = parseBinaryData(binaryBuffer, currentEndValue)
-                    binaryCallback?.invoke(data)
-                    binaryCallback = null
-                }
-            }, 30000)
+                enqueueWrite(g, "sd$channel\n")
+                Log.d("SensorBox", "📤 Sent sd$channel command")
+                
+                // Timeout po 120 sekundach (dla długich nagrań 24h może być ~86k próbek)
+                handler.postDelayed({
+                    if (isDownloadingBinary) {
+                        isDownloadingBinary = false
+                        val data = parseBinaryData(binaryBuffer, currentEndValue)
+                        binaryCallback?.invoke(data)
+                        binaryCallback = null
+                    }
+                }, 120000)
+            }, 1000) // 1 second delay BEFORE command (like Python)
         } ?: callback(null)
     }
     
     /**
      * Dekoduj dane binarne do wartości fizycznych
-     * Format: każdy bajt = (value - 40.0) / 1.6 → 0-100%
+     * Format: 2 bajty na próbkę (16-bit little endian)
+     * Konwersja: value = (unsigned_16bit - 40.0) / 1.6 → 0-100%
      * Potem: physical_value = percentage * endValue / 100
      */
     private fun parseBinaryData(bytes: List<Byte>, endValue: Float): List<Float> {
-        return bytes.map { byte ->
-            val unsigned = byte.toInt() and 0xFF
-            val percentage = (unsigned - 40.0f) / 1.6f
+        val samples = mutableListOf<Float>()
+        
+        Log.d("SensorBox", "📊 Parsing ${bytes.size} bytes with endValue=$endValue (expecting ${bytes.size / 2} samples)")
+        
+        // Przetwarzaj po 2 bajty (16-bit little endian)
+        var i = 0
+        while (i < bytes.size - 1) {
+            val lowByte = bytes[i].toInt() and 0xFF
+            val highByte = bytes[i + 1].toInt() and 0xFF
+            val unsigned16 = (highByte shl 8) or lowByte
+            
+            val percentage = (unsigned16 - 40.0f) / 1.6f
             val physicalValue = percentage * endValue / 100f
-            physicalValue
+            samples.add(physicalValue)
+            
+            i += 2
         }
+        
+        Log.d("SensorBox", "✅ Parsed ${bytes.size} bytes → ${samples.size} samples")
+        return samples
     }
     
     /**

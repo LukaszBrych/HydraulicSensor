@@ -226,14 +226,26 @@ fun DownloadOfflineDataScreen(
                         val date = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                             .format(Date(timestamp * 1000))
                         
+                        // Calculate samples and duration
+                        // du = duration units (każda jednostka = 500 próbek)
+                        // Jeśli mamy już pobrane dane, użyj faktycznej liczby
+                        val du = headerData!!["du"]?.toIntOrNull() ?: 0
+                        val samples = if (downloadedData.isNotEmpty()) {
+                            downloadedData.values.firstOrNull()?.size ?: (du * 500)
+                        } else {
+                            du * 500
+                        }
+                        val timeBaseMs = headerData!!["tb"]?.toIntOrNull() ?: 1
+                        val durationSec = (samples * timeBaseMs) / 1000.0
+                        
                         InfoRow("Data:", date)
                         InfoRow("Kanały:", headerData!!["rc"] ?: "?")
                         InfoRow("Trigger:", "P${headerData!!["tc"]} @ ${headerData!!["th"]}%")
-                        InfoRow("Próbek:", headerData!!["end"] ?: "?")
-                        InfoRow("Time Base:", "${headerData!!["tb"]}ms")
-                        InfoRow("Duration:", "${headerData!!["du"]}s")
+                        InfoRow("Próbek:", "$samples")
+                        InfoRow("Time Base:", "${timeBaseMs}ms")
+                        InfoRow("Duration:", "%.1fs".format(durationSec))
                         
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         
                         Text("End Values:", fontWeight = FontWeight.Bold)
                         (1..4).forEach { ch ->
