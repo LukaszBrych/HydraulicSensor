@@ -86,6 +86,9 @@ class MainActivity : ComponentActivity() {
 
     private val connectionStatus = mutableStateOf("Disconnected")
     private val isReadingLive = mutableStateOf(false)
+    
+    // CSV Logger dla live reading
+    private var csvLogger: CSVLogger? = null
 
     private val charUuid = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
     private val serviceUuid = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb")
@@ -399,11 +402,22 @@ class MainActivity : ComponentActivity() {
                 val parts = frame.split("#").filter { it.isNotBlank() }
                 if (parts.size >= 6) {
                     handler.post {
+                        val channelData = mutableMapOf<Int, Float>()
                         for (i in 0 until 6) {
                             val rawVal = parts[i].replace("[^0-9.-]".toRegex(), "")
                             val value = rawVal.toDoubleOrNull()
                             channelValues[i] =
                                 if (value != null) "P${i + 1}: $value" else "P${i + 1}: brak czujnika"
+                            
+                            // Zapisz do CSV jeśli jest wartość
+                            if (value != null) {
+                                channelData[i + 1] = value.toFloat()
+                            }
+                        }
+                        
+                        // Log do CSV
+                        if (channelData.isNotEmpty()) {
+                            csvLogger?.logSample(channelData)
                         }
                     }
                 } else {
@@ -525,6 +539,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var currentScreen by remember { mutableStateOf("main") }
+            var selectedFile by remember { mutableStateOf<java.io.File?>(null) }
             
             HydraulicSensorAppTheme {
                 Surface(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
@@ -562,8 +577,24 @@ class MainActivity : ComponentActivity() {
                             onBack = { finish() },
                             onCommandTest = { currentScreen = "commands" },
                             onOfflineConfig = { currentScreen = "offlineConfig" },
-                            onDownloadData = { currentScreen = "downloadData" }
+                            onDownloadData = { currentScreen = "downloadData" },
+                            onLiveRecordings = { currentScreen = "liveRecordings" }
                         )
+                        
+                        "liveRecordings" -> LiveRecordingsScreen(
+                            onBack = { currentScreen = "main" },
+                            onViewFile = { file ->
+                                selectedFile = file
+                                currentScreen = "recordingViewer"
+                            }
+                        )
+                        
+                        "recordingViewer" -> selectedFile?.let { file ->
+                            RecordingViewerScreen(
+                                file = file,
+                                onBack = { currentScreen = "liveRecordings" }
+                            )
+                        }
                         
                         "commands" -> CommandTestScreen(
                             activity = this@MainActivity,
@@ -940,11 +971,23 @@ class MainActivity : ComponentActivity() {
     private fun startLiveRead(){
         isReadingLive.value = true
         handler.post(liveReadRunnable)
+        
+        // Start CSV logging
+        if (csvLogger == null) {
+            csvLogger = CSVLogger(this)
+        }
+        val activeChannels = (1..6).toList()
+        csvLogger?.startLogging(activeChannels, displayUnits.toList())
+        Log.d("SensorBox", "Started CSV logging for live reading")
     }
 
     private fun stopLiveRead(){
         isReadingLive.value = false
         handler.removeCallbacks(liveReadRunnable)
+        
+        // Stop CSV logging
+        csvLogger?.stopLogging()
+        Log.d("SensorBox", "Stopped CSV logging")
     }
 
     private fun stopBleConnection(){

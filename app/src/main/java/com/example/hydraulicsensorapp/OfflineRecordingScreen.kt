@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
@@ -44,7 +45,8 @@ fun OfflineRecordingScreen(
     onBack: () -> Unit,
     onCommandTest: () -> Unit = {},  // Callback do ekranu testowego
     onOfflineConfig: () -> Unit = {},  // Callback do Offline Recording Config
-    onDownloadData: () -> Unit = {}  // Callback do pobierania offline data
+    onDownloadData: () -> Unit = {},  // Callback do pobierania offline data
+    onLiveRecordings: () -> Unit = {}  // Callback do Live Recordings
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
@@ -133,19 +135,99 @@ fun OfflineRecordingScreen(
                         }
                     }
                     
-                    // Przycisk Komendy
-                    IconButton(onClick = onCommandTest) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Komendy", tint = Color(0xFFCBD5E1))
-                    }
+                    // Menu dropdown
+                    var menuExpanded by remember { mutableStateOf(false) }
                     
-                    // Przycisk Offline Recording Config
-                    IconButton(onClick = onOfflineConfig) {
-                        Icon(Icons.Outlined.Menu, contentDescription = "Offline Recording", tint = Color(0xFFCBD5E1))
-                    }
-                    
-                    // Przycisk Download Offline Data
-                    TextButton(onClick = onDownloadData) {
-                        Text("📥", color = Color(0xFFCBD5E1))
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = Color(0xFFCBD5E1)
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(Color(0xFF1E293B))
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Test Commands",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onCommandTest()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8)
+                                    )
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Offline Recording Setup",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOfflineConfig()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Outlined.Menu,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8)
+                                    )
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Download Offline Data",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDownloadData()
+                                },
+                                leadingIcon = {
+                                    Text("📥", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Live Recordings",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onLiveRecordings()
+                                },
+                                leadingIcon = {
+                                    Text("📊", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
