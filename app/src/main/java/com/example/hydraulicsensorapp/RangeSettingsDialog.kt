@@ -61,7 +61,7 @@ fun RangeSettingsDialog(
             units = listOf("lpm", "gpm"),
             defaults = listOf(60f, 100f, 250f, 600f, 1000f),
             limits = listOf(60f, 100f, 250f, 600f, 1000f),
-            labels = listOf("1-60", "1-100", "1-250", "1-600", "Custom")
+            labels = listOf("R1", "R2", "R3", "R4", "R5")
         )
         "P6" -> SensorConfig(
             type = "Multi-function",
@@ -300,12 +300,7 @@ fun RangeSettingsDialog(
                             
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            Text(
-                                "ℹ️ Read from sensor via 'e' command. To change W values, use USB/BlueBox connection (BLE doesn't support 'w' command).",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B),
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                
                         }
                     }
 
@@ -508,29 +503,6 @@ fun RangeSettingsDialog(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // Info Card
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF334155)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                "ℹ️ Info",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF94A3B8),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "• Wartości są automatycznie przeliczane przy zmianie jednostki\n" +
-                                "• Hardware limity są sprawdzane dla każdego zakresu\n" +
-                                "• SensorBox konwertuje jednostki w firmware",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF94A3B8)
-                            )
-                        }
-                    }
                 }
 
                 // Footer Buttons

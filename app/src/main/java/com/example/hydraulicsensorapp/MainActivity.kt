@@ -60,6 +60,7 @@ import java.util.*
  * Q1: Typy turbin 1-60, 1-100, 1-250, 1-600 lpm + custom
  * Q2: R1-2=przepływ, R3=moc hydrauliczna P1×Q1/600, R4-5=RPM
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
 
     private var bluetoothAdapter: BluetoothAdapter? = null
@@ -83,7 +84,7 @@ class MainActivity : ComponentActivity() {
     // Jednostki wyświetlane w UI (mogą być zmieniane przez użytkownika)
     private val displayUnits = mutableStateListOf("bar", "bar", "bar", "C", "lpm", "lpm")
 
-    private val connectionStatus = mutableStateOf("Rozłączono")
+    private val connectionStatus = mutableStateOf("Disconnected")
     private val isReadingLive = mutableStateOf(false)
 
     private val charUuid = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
@@ -169,7 +170,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
-                        connectionStatus.value = "Połączono z SensorBox"
+                        connectionStatus.value = "Connected to SensorBox"
                         Log.d("SensorBox", "Connected to GATT, status=$status")
                         if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                             // Zwiększ MTU do 512 aby pomieścić długie komendy jak 'sr'
@@ -641,8 +642,8 @@ class MainActivity : ComponentActivity() {
             channelValues[i] = "P${i+1}: ---"
         }
         
-        connectionStatus.value = "Rozłączono"
-        Log.d("SensorBox", "Rozłączono z urządzeniem BLE")
+        connectionStatus.value = "Disconnected"
+        Log.d("SensorBox", "Disconnected from BLE device")
     }
 
     private fun connectToDeviceByMac(macAddress:String){
@@ -1272,27 +1273,22 @@ class MainActivity : ComponentActivity() {
     
     /**
      * Dekoduj dane binarne do wartości fizycznych
-     * Format: 2 bajty na próbkę (16-bit little endian)
-     * Konwersja: value = (unsigned_16bit - 40.0) / 1.6 → 0-100%
-     * Potem: physical_value = percentage * endValue / 100
+     * Python: czyta PO 1 BAJCIE i konwertuje każdy bajt osobno!
+     * vi = (ord(s)-40.0)/1.6  → daje procent 0-100%
+     * Potem: physical_value = percentage / 100.0 * endValue
      */
     private fun parseBinaryData(bytes: List<Byte>, endValue: Float): List<Float> {
         val samples = mutableListOf<Float>()
         
-        Log.d("SensorBox", "📊 Parsing ${bytes.size} bytes with endValue=$endValue (expecting ${bytes.size / 2} samples)")
+        Log.d("SensorBox", "📊 Parsing ${bytes.size} bytes with endValue=$endValue (expecting ${bytes.size} samples)")
         
-        // Przetwarzaj po 2 bajty (16-bit little endian)
-        var i = 0
-        while (i < bytes.size - 1) {
-            val lowByte = bytes[i].toInt() and 0xFF
-            val highByte = bytes[i + 1].toInt() and 0xFF
-            val unsigned16 = (highByte shl 8) or lowByte
-            
-            val percentage = (unsigned16 - 40.0f) / 1.6f
-            val physicalValue = percentage * endValue / 100f
+        // Python: s = self.ser.read(1) → czyta PO 1 BAJCIE!
+        // vi = (ord(s)-40.0)/1.6 → konwertuje POJEDYNCZY bajt
+        for (byte in bytes) {
+            val unsignedByte = byte.toInt() and 0xFF
+            val percentage = (unsignedByte - 40.0f) / 1.6f  // 0-100%
+            val physicalValue = percentage / 100f * endValue
             samples.add(physicalValue)
-            
-            i += 2
         }
         
         Log.d("SensorBox", "✅ Parsed ${bytes.size} bytes → ${samples.size} samples")
@@ -1340,7 +1336,7 @@ class MainActivity : ComponentActivity() {
                     // Nagłówek kolumn
                     val channels = data.keys.sorted()
                     writer.write("Sample")
-                    channels.forEach { ch -> writer.write(",P$ch") }
+                    channels.forEach { ch -> writer.write(";P$ch") }  // Średnik dla Excel PL
                     writer.write("\n")
                     
                     // Dane
@@ -1349,7 +1345,7 @@ class MainActivity : ComponentActivity() {
                         writer.write("$i")
                         channels.forEach { ch ->
                             val value = data[ch]?.getOrNull(i) ?: 0f
-                            writer.write(",%.3f".format(value))
+                            writer.write(";%.3f".format(value))  // Średnik dla Excel PL
                         }
                         writer.write("\n")
                     }

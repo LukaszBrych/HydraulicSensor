@@ -13,7 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
+@ExperimentalMaterial3Api
 @Composable
 fun OfflineRecordingConfigScreen(
     onBack: () -> Unit,
@@ -181,32 +182,37 @@ fun OfflineRecordingConfigScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
+                    // Checkboxy jeden pod drugim
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(checked = ch1, onCheckedChange = { ch1 = it })
-                        Text("P1", color = Color.White, modifier = Modifier.align(Alignment.CenterVertically))
-                        
-                        Checkbox(checked = ch2, onCheckedChange = { ch2 = it })
-                        Text("P2", color = Color.White, modifier = Modifier.align(Alignment.CenterVertically))
-                        
-                        Checkbox(checked = ch3, onCheckedChange = { ch3 = it })
-                        Text("P3", color = Color.White, modifier = Modifier.align(Alignment.CenterVertically))
+                        Text("P1", color = Color.White)
                     }
                     
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = ch2, onCheckedChange = { ch2 = it })
+                        Text("P2", color = Color.White)
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = ch3, onCheckedChange = { ch3 = it })
+                        Text("P3", color = Color.White)
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(checked = ch4, onCheckedChange = { ch4 = it })
-                        Text("P4", color = Color.White, modifier = Modifier.align(Alignment.CenterVertically))
-                        
-                        Checkbox(checked = false, onCheckedChange = {}, enabled = false)
-                        Text("P5 (brak w offline)", color = Color.Gray, modifier = Modifier.align(Alignment.CenterVertically))
-                        
-                        Checkbox(checked = false, onCheckedChange = {}, enabled = false)
-                        Text("P6 (brak w offline)", color = Color.Gray, modifier = Modifier.align(Alignment.CenterVertically))
+                        Text("P4", color = Color.White)
                     }
                 }
             }
@@ -239,7 +245,11 @@ fun OfflineRecordingConfigScreen(
                     
                     // Time Base
                     Text("Time Base", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         listOf("1ms", "10ms", "100ms", "1s", "10s").forEach { tb ->
                             FilterChip(
                                 selected = timeBase == tb,

@@ -70,23 +70,23 @@ fun OfflineRecordingScreen(
                         // Kompaktowy status połączenia
                         Surface(
                             shape = CircleShape,
-                            color = if (connectionStatus.contains("Połączono")) Color(0xFF10B981) else Color(0xFF64748B),
+                            color = if (connectionStatus.contains("Connected")) Color(0xFF10B981) else Color(0xFF64748B),
                             modifier = Modifier.size(8.dp)
                         ) {}
                         
                         Column {
                             Text("Hydraulic Sensor", style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Text(
-                                if (connectionStatus.contains("Połączono")) "Połączono" else "Rozłączono",
+                                if (connectionStatus.contains("Connected")) "Connected" else "Disconnected",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (connectionStatus.contains("Połączono")) Color(0xFF10B981) else Color(0xFF94A3B8)
+                                color = if (connectionStatus.contains("Connected")) Color(0xFF10B981) else Color(0xFF94A3B8)
                             )
                         }
                     }
                 },
                 actions = {
                     // Przycisk Połącz/Rozłącz
-                    if (!connectionStatus.contains("Połączono")) {
+                    if (!connectionStatus.contains("Connected")) {
                         TextButton(
                             onClick = onConnect,
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF60A5FA))
@@ -146,10 +146,6 @@ fun OfflineRecordingScreen(
                     // Przycisk Download Offline Data
                     TextButton(onClick = onDownloadData) {
                         Text("📥", color = Color(0xFFCBD5E1))
-                    }
-                    
-                    IconButton(onClick = { isMenuOpen = !isMenuOpen }) {
-                        Icon(Icons.Outlined.Menu, contentDescription = "Menu", tint = Color(0xFFCBD5E1))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))

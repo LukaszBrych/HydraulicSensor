@@ -49,9 +49,15 @@ fun DownloadOfflineDataScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Wróć")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A),
+                    titleContentColor = androidx.compose.ui.graphics.Color.White,
+                    navigationIconContentColor = androidx.compose.ui.graphics.Color.White
+                )
             )
-        }
+        },
+        containerColor = androidx.compose.ui.graphics.Color(0xFF1E293B)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -65,11 +71,7 @@ fun DownloadOfflineDataScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = when (currentMode) {
-                        'N' -> MaterialTheme.colorScheme.surfaceVariant
-                        'R' -> MaterialTheme.colorScheme.errorContainer
-                        else -> MaterialTheme.colorScheme.surface
-                    }
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A)
                 )
             ) {
                 Column(
@@ -80,23 +82,41 @@ fun DownloadOfflineDataScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Info, "Status")
+                        Icon(Icons.Default.Info, "Status", tint = androidx.compose.ui.graphics.Color.White)
                         Text(
                             "Status SensorBox",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.White
                         )
                     }
                     
-                    Text(
-                        when (currentMode) {
-                            'N' -> "✅ Normal Mode - gotowy do pobrania"
-                            'R' -> "⏺️ Recording Mode - trwa zapis"
-                            null -> "❓ Nieznany - sprawdź status"
-                            else -> "⚠️ Status: $currentMode"
-                        },
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    if (isChecking) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = androidx.compose.ui.graphics.Color(0xFF10B981)
+                            )
+                            Text(
+                                "Sprawdzanie statusu...",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = androidx.compose.ui.graphics.Color(0xFF94A3B8)
+                            )
+                        }
+                    } else if (currentMode != null) {
+                        Text(
+                            when (currentMode) {
+                                'N' -> "✅ Normal Mode - gotowy do pobrania"
+                                else -> "⚠️ Status: $currentMode"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = androidx.compose.ui.graphics.Color.White
+                        )
+                    }
                     
                     Button(
                         onClick = {
@@ -111,96 +131,37 @@ fun DownloadOfflineDataScreen(
                             }
                         },
                         enabled = !isChecking && !isDownloading,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
+                        )
                     ) {
-                        if (isChecking) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                        }
                         Text("Sprawdź Status")
                     }
                     
                     // Przycisk Stop Recording (tylko gdy mode = 'R')
                     if (currentMode == 'R') {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    onStopRecording()
-                                    statusMessage = "Wysłano komendę STOP..."
-                                    // Sprawdź status po 2 sekundach
-                                    coroutineScope.launch {
-                                        delay(2000)
-                                        onCheckMode { mode ->
-                                            currentMode = mode
-                                        }
-                                    }
-                                },
-                                enabled = !isChecking && !isDownloading,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Text("⏹️ Zatrzymaj Recording")
-                            }
-                            
-                            Text(
-                                "⚠️ Zatrzymanie nie czyści pamięci - użyj przycisku poniżej aby wyczyścić.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    // Przycisk Clear Memory (zawsze widoczny gdy nie trwa pobieranie)
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    
-                    Button(
-                        onClick = {
-                            statusMessage = "Wysyłam komendy czyszczenia pamięci..."
-                            errorMessage = ""
-                            coroutineScope.launch {
-                                onClearMemory { success ->
-                                    if (success) {
-                                        statusMessage = "✅ Wysłano komendy czyszczenia - sprawdź status"
-                                        // Sprawdź status po 2s
-                                        coroutineScope.launch {
-                                            delay(2000)
-                                            onCheckMode { mode ->
-                                                currentMode = mode
-                                                if (mode == 'N') {
-                                                    statusMessage = "✅ Pamięć wyczyszczona - SensorBox w trybie Normal"
-                                                } else {
-                                                    statusMessage = "⚠️ Status: $mode - jeśli nadal R, rozłącz zasilanie na 10s"
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        errorMessage = "❌ Nie udało się wysłać komend czyszczenia"
+                        Button(
+                            onClick = {
+                                onStopRecording()
+                                statusMessage = "Wysłano komendę STOP..."
+                                // Sprawdź status po 2 sekundach
+                                coroutineScope.launch {
+                                    delay(2000)
+                                    onCheckMode { mode ->
+                                        currentMode = mode
                                     }
                                 }
-                            }
-                        },
-                        enabled = !isChecking && !isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary
-                        )
-                    ) {
-                        Text("🗑️ Wyczyść Pamięć (Clear Memory)")
+                            },
+                            enabled = !isChecking && !isDownloading,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = androidx.compose.ui.graphics.Color(0xFFEF4444)
+                            )
+                        ) {
+                            Text("⏹️ Zatrzymaj Recording")
+                        }
                     }
-                    
-                    Text(
-                        "Usuwa stare nagranie z pamięci SensorBox. Użyj gdy nowe nagrania są odrzucane (status=4).",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
@@ -209,7 +170,7 @@ fun DownloadOfflineDataScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A)
                     )
                 ) {
                     Column(
@@ -219,7 +180,8 @@ fun DownloadOfflineDataScreen(
                         Text(
                             "Informacje o nagraniu",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.White
                         )
                         
                         val timestamp = headerData!!["ts"]?.toLongOrNull() ?: 0L
@@ -238,20 +200,21 @@ fun DownloadOfflineDataScreen(
                         val timeBaseMs = headerData!!["tb"]?.toIntOrNull() ?: 1
                         val durationSec = (samples * timeBaseMs) / 1000.0
                         
-                        InfoRow("Data:", date)
-                        InfoRow("Kanały:", headerData!!["rc"] ?: "?")
-                        InfoRow("Trigger:", "P${headerData!!["tc"]} @ ${headerData!!["th"]}%")
-                        InfoRow("Próbek:", "$samples")
-                        InfoRow("Time Base:", "${timeBaseMs}ms")
-                        InfoRow("Duration:", "%.1fs".format(durationSec))
+                        InfoRow("Data:", date, androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Kanały:", headerData!!["rc"] ?: "?", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Trigger:", "P${headerData!!["tc"]} @ ${headerData!!["th"]}%", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Próbek:", "$samples", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Time Base:", "${timeBaseMs}ms", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Duration:", "%.1fs".format(durationSec), androidx.compose.ui.graphics.Color.White)
                         
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         
-                        Text("End Values:", fontWeight = FontWeight.Bold)
+                        Text("End Values:", fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
                         (1..4).forEach { ch ->
                             InfoRow(
                                 "P$ch:",
-                                "${headerData!!["e$ch"]} ${headerData!!["u$ch"]}"
+                                "${headerData!!["e$ch"]} ${headerData!!["u$ch"]}",
+                                androidx.compose.ui.graphics.Color.White
                             )
                         }
                     }
@@ -344,19 +307,12 @@ fun DownloadOfflineDataScreen(
                     }
                 },
                 enabled = !isDownloading && (currentMode == 'N' || currentMode == 'R'),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
+                )
             ) {
                 Text("Pobierz dane z SensorBox")
-            }
-            
-            // Info o pobieraniu w trybie R
-            if (currentMode == 'R') {
-                Text(
-                    "⚠️ Uwaga: SensorBox jest w trybie Recording. Pobieranie może nie działać lub zwrócić częściowe dane.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
             }
 
             // Progress
@@ -410,40 +366,17 @@ fun DownloadOfflineDataScreen(
                     )
                 }
             }
-
-            // Instructions
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "Instrukcja:",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text("1. Sprawdź status SensorBox", style = MaterialTheme.typography.bodyMedium)
-                    Text("2. Jeśli status = 'R':", style = MaterialTheme.typography.bodyMedium)
-                    Text("   • SensorBox czeka na trigger - spełnij warunek", style = MaterialTheme.typography.bodySmall)
-                    Text("   • Lub rozłącz i połącz ponownie", style = MaterialTheme.typography.bodySmall)
-                    Text("3. Jeśli status = 'N', kliknij 'Pobierz dane'", style = MaterialTheme.typography.bodyMedium)
-                    Text("4. Poczekaj na zakończenie pobierania", style = MaterialTheme.typography.bodyMedium)
-                    Text("5. Plik CSV zostanie zapisany w Downloads/HydraulicSensorApp/", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun InfoRow(label: String, value: String, color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.White) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontWeight = FontWeight.Medium)
-        Text(value)
+        Text(label, fontWeight = FontWeight.Medium, color = color)
+        Text(value, color = color)
     }
 }
