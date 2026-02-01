@@ -27,7 +27,8 @@ fun RangeSettingsDialog(
     currentEndValue: String,
     onQueryEndValues: () -> Unit,
     onDismiss: () -> Unit,
-    onSave: (activeRangeIndex: Int, allRanges: List<String>, selectedUnit: String) -> Unit
+    onSave: (activeRangeIndex: Int, allRanges: List<String>, selectedUnit: String) -> Unit,
+    turbineNames: Map<String, String> = emptyMap()
 ) {
     // Zapytaj o wartości końcowe po otwarciu dialogu
     LaunchedEffect(Unit) {
@@ -40,21 +41,21 @@ fun RangeSettingsDialog(
             units = listOf("bar", "psi", "MPa"),
             defaults = listOf(10f, 60f, 100f, 250f, 600f),
             limits = listOf(10f, 60f, 100f, 250f, 600f),
-            labels = listOf("0-10", "0-60", "0-100", "0-250", "0-600")
+            labels = listOf("R1", "R2", "R3", "R4", "R5")
         )
         "P3" -> SensorConfig(
             type = "Differential / Pressure",
             units = listOf("bar", "psi", "MPa"),
             defaults = listOf(0f, 60f, 100f, 250f, 600f),  // R1 = P1-P2
             limits = listOf(0f, 60f, 100f, 250f, 600f),
-            labels = listOf("P1-P2", "0-60", "0-100", "0-250", "0-600")
+            labels = listOf("R1", "R2", "R3", "R4", "R5")
         )
         "P4" -> SensorConfig(
             type = "Temperature",
             units = listOf("C", "F"),
             defaults = listOf(125f, 500f, 200f, 300f, 400f),
             limits = listOf(125f, 500f, 200f, 300f, 400f),
-            labels = listOf("0-125", "0-500", "0-200", "0-300", "0-400")
+            labels = listOf("R1", "R2", "R3", "R4", "R5")
         )
         "P5" -> SensorConfig(
             type = "Flow (Turbine)",
@@ -217,7 +218,7 @@ fun RangeSettingsDialog(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Unit / Jednostka",
+                                "Unit",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF94A3B8),
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -264,43 +265,90 @@ fun RangeSettingsDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Current End Value (W) - Read Only
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                "Current End Value (W) / Aktualna wartość końcowa",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF94A3B8),
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextField(
-                                    value = displayedEndValue,
-                                    onValueChange = {},
-                                    enabled = false,
-                                    modifier = Modifier.weight(1f),
-                                    textStyle = MaterialTheme.typography.titleLarge,
-                                    suffix = { Text(currentUnit, color = Color(0xFF94A3B8)) },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        disabledTextColor = Color(0xFFE0E0E0),
-                                        disabledBorderColor = Color(0xFF475569),
-                                        disabledContainerColor = Color(0xFF1E293B)
-                                    ),
-                                    singleLine = true
+                    // Current End Value (W) or Turbine Name for P5/P6 R1-R2
+                    if ((sensorId == "P5" && activeRange <= 4) || (sensorId == "P6" && activeRange <= 1)) {
+                        // Show Turbine Name instead of W value
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "Turbine Name",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color(0xFF94A3B8),
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
+                                
+                                val turbineKey = when {
+                                    sensorId == "P5" -> "P5R${activeRange + 1}"
+                                    sensorId == "P6" && activeRange == 0 -> "P6R1"
+                                    sensorId == "P6" && activeRange == 1 -> "P6R2"
+                                    else -> ""
+                                }
+                                val turbineName = turbineNames[turbineKey] ?: "Not configured"
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = turbineName,
+                                        onValueChange = {},
+                                        enabled = false,
+                                        modifier = Modifier.weight(1f),
+                                        textStyle = MaterialTheme.typography.titleLarge,
+                                        suffix = { Text(currentUnit, color = Color(0xFF94A3B8)) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledTextColor = Color(0xFFE0E0E0),
+                                            disabledBorderColor = Color(0xFF475569),
+                                            disabledContainerColor = Color(0xFF1E293B)
+                                        ),
+                                        singleLine = true
+                                    )
+                                }
                             }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                
+                        }
+                    } else {
+                        // Show Current End Value (W) for other ranges
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "Current End Value (W)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color(0xFF94A3B8),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = displayedEndValue,
+                                        onValueChange = {},
+                                        enabled = false,
+                                        modifier = Modifier.weight(1f),
+                                        textStyle = MaterialTheme.typography.titleLarge,
+                                        suffix = { Text(currentUnit, color = Color(0xFF94A3B8)) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledTextColor = Color(0xFFE0E0E0),
+                                            disabledBorderColor = Color(0xFF475569),
+                                            disabledContainerColor = Color(0xFF1E293B)
+                                        ),
+                                        singleLine = true
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                    
+                            }
                         }
                     }
 
@@ -313,7 +361,7 @@ fun RangeSettingsDialog(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Active Range / Aktywny zakres",
+                                "Active Range",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF94A3B8),
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -358,7 +406,7 @@ fun RangeSettingsDialog(
 
                     // Range TextFields
                     Text(
-                        "Range Values / Wartości zakresów",
+                        "Range Values",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color(0xFF94A3B8),
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -429,7 +477,36 @@ fun RangeSettingsDialog(
                                         singleLine = true
                                     )
                                 } else {
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    // Check if this is P5 (any range) or P6 R1-R2
+                                    val shouldShowTurbineName = (sensorId == "P5") || (sensorId == "P6" && index <= 1)
+                                    
+                                    if (shouldShowTurbineName) {
+                                        // Show turbine name instead of value field
+                                        val turbineKey = when {
+                                            sensorId == "P5" -> "P5R${index + 1}"
+                                            sensorId == "P6" && index == 0 -> "P6R1"
+                                            sensorId == "P6" && index == 1 -> "P6R2"
+                                            else -> ""
+                                        }
+                                        val turbineName = turbineNames[turbineKey] ?: "Not configured"
+                                        
+                                        OutlinedTextField(
+                                            value = turbineName,
+                                            onValueChange = {},
+                                            enabled = false,
+                                            modifier = Modifier.weight(1f),
+                                            textStyle = MaterialTheme.typography.bodyLarge,
+                                            suffix = { Text(currentUnit, color = Color(0xFF94A3B8)) },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                disabledTextColor = Color(0xFFE0E0E0),
+                                                disabledBorderColor = Color(0xFF475569),
+                                                disabledContainerColor = Color(0xFF1E293B)
+                                            ),
+                                            singleLine = true
+                                        )
+                                    } else {
+                                        // Show editable value field for other sensors
+                                        Column(modifier = Modifier.weight(1f)) {
                                         OutlinedTextField(
                                             value = rangeValues[index],
                                             onValueChange = { newValue ->
@@ -463,6 +540,7 @@ fun RangeSettingsDialog(
                                             )
                                         }
                                     }
+                                    }
                                 }
                             }
                         }
@@ -488,13 +566,13 @@ fun RangeSettingsDialog(
                             )
                             Column {
                                 Text(
-                                    "Aktywny zakres: R${activeRange + 1}",
+                                    "Active Range: R${activeRange + 1}",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    "Wartość: ${rangeValues[activeRange]} $currentUnit (${sensorConfig.labels[activeRange]})",
+                                    "Value: ${rangeValues[activeRange]} $currentUnit (${sensorConfig.labels[activeRange]})",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )

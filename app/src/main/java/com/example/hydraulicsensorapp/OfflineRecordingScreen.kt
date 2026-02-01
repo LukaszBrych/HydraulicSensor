@@ -46,7 +46,9 @@ fun OfflineRecordingScreen(
     onCommandTest: () -> Unit = {},  // Callback do ekranu testowego
     onOfflineConfig: () -> Unit = {},  // Callback do Offline Recording Config
     onDownloadData: () -> Unit = {},  // Callback do pobierania offline data
-    onLiveRecordings: () -> Unit = {}  // Callback do Live Recordings
+    onLiveRecordings: () -> Unit = {},  // Callback do Live Recordings
+    onTurbineCalibration: () -> Unit = {},  // Callback do Turbine Calibration
+    turbineNames: Map<String, String> = emptyMap()  // Turbine names for P5/P6
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
@@ -93,7 +95,7 @@ fun OfflineRecordingScreen(
                             onClick = onConnect,
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF60A5FA))
                         ) {
-                            Text("Połącz", style = MaterialTheme.typography.labelMedium)
+                            Text("Connect", style = MaterialTheme.typography.labelMedium)
                         }
                     } else {
                         // Gdy połączony - pokaż przycisk Rozłącz oraz Start/Stop pomiarów
@@ -105,7 +107,7 @@ fun OfflineRecordingScreen(
                                 disabledContentColor = Color(0xFF475569)
                             )
                         ) {
-                            Text("Rozłącz", style = MaterialTheme.typography.labelMedium)
+                            Text("Disconnect", style = MaterialTheme.typography.labelMedium)
                         }
                         
                         Spacer(modifier = Modifier.width(8.dp))
@@ -227,6 +229,27 @@ fun OfflineRecordingScreen(
                                     Text("📊", style = MaterialTheme.typography.bodyMedium)
                                 }
                             )
+                            
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Turbine Calibration",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onTurbineCalibration()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8)
+                                    )
+                                }
+                            )
                         }
                     }
                 },
@@ -248,6 +271,7 @@ fun OfflineRecordingScreen(
                     onRangeChange = onRangeChange,
                     onSendRangeSettings = onSendRangeSettings,
                     onDialogClose = { startCountdown = 3 },  // Uruchom countdown po zamknięciu dialogu
+                    turbineNames = turbineNames,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -272,6 +296,7 @@ fun SensorGrid(
     onRangeChange: (Int, String) -> Unit,
     onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
     onDialogClose: () -> Unit,
+    turbineNames: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -295,7 +320,8 @@ fun SensorGrid(
                 isReadingLive = isReadingLive,
                 onRangeChange = { idx, v -> customInputs[idx] = v; onRangeChange(idx,v) },
                 onSendRangeSettings = onSendRangeSettings,
-                onDialogClose = onDialogClose
+                onDialogClose = onDialogClose,
+                turbineNames = turbineNames
             )
         }
     }
@@ -315,7 +341,8 @@ fun SensorTile(
     isReadingLive: Boolean,
     onRangeChange: (Int,String) -> Unit,
     onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
-    onDialogClose: () -> Unit
+    onDialogClose: () -> Unit,
+    turbineNames: Map<String, String> = emptyMap()
 ) {
     var showRangeDialog by remember { mutableStateOf(false) }
     
@@ -436,10 +463,17 @@ fun SensorTile(
                 
                 // Wywołaj callback z wybranym zakresem (aktywny zakres)
                 onRangeChange(index, newRanges[activeRangeIndex])
+                // Aktualizuj zakresy lokalnie
+                currentRanges.clear()
+                currentRanges.addAll(newRanges)
+                
+                // Wywołaj callback z wybranym zakresem (aktywny zakres)
+                onRangeChange(index, newRanges[activeRangeIndex])
                 
                 // Wyślij do SensorBox przez BLE (z informacją o selectedUnit)
                 onSendRangeSettings(index, activeRangeIndex, newRanges, selectedUnit)
-            }
+            },
+            turbineNames = turbineNames
         )
     }
 

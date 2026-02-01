@@ -112,7 +112,7 @@ fun OfflineRecordingConfigScreen(
                     )
                     
                     // Trigger Channel
-                    Text("Trigger Channel (tylko P1-P4)", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
+                    Text("Trigger Channel (only P1-P4)", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (1..4).forEach { ch ->
                             FilterChip(

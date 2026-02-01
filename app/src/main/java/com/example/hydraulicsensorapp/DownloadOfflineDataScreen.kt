@@ -44,7 +44,7 @@ fun DownloadOfflineDataScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pobieranie Offline Data") },
+                title = { Text("Download Offline Data") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Wróć")
@@ -102,7 +102,7 @@ fun DownloadOfflineDataScreen(
                                 color = androidx.compose.ui.graphics.Color(0xFF10B981)
                             )
                             Text(
-                                "Sprawdzanie statusu...",
+                                "Checking status...",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = androidx.compose.ui.graphics.Color(0xFF94A3B8)
                             )
@@ -110,7 +110,8 @@ fun DownloadOfflineDataScreen(
                     } else if (currentMode != null) {
                         Text(
                             when (currentMode) {
-                                'N' -> "✅ Normal Mode - gotowy do pobrania"
+                                'N' -> "✅ Ready for Offline Recording"
+                                'R' -> "✅ Offline Data Download has been completed"
                                 else -> "⚠️ Status: $currentMode"
                             },
                             style = MaterialTheme.typography.bodyLarge,
@@ -136,30 +137,29 @@ fun DownloadOfflineDataScreen(
                             containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
                         )
                     ) {
-                        Text("Sprawdź Status")
+                        Text("Check Status")
                     }
                     
-                    // Przycisk Stop Recording (tylko gdy mode = 'R')
+                    // Note for Status R - power cycle required
                     if (currentMode == 'R') {
-                        Button(
-                            onClick = {
-                                onStopRecording()
-                                statusMessage = "Wysłano komendę STOP..."
-                                // Sprawdź status po 2 sekundach
-                                coroutineScope.launch {
-                                    delay(2000)
-                                    onCheckMode { mode ->
-                                        currentMode = mode
-                                    }
-                                }
-                            },
-                            enabled = !isChecking && !isDownloading,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = androidx.compose.ui.graphics.Color(0xFFEF4444)
-                            )
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF1E293B)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("⏹️ Zatrzymaj Recording")
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "ℹ️ Note",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = androidx.compose.ui.graphics.Color(0xFF10B981),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Before performing a new Offline Recording, you must physically power cycle the SensorBox (turn it off and on).",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = androidx.compose.ui.graphics.Color(0xFF94A3B8)
+                                )
+                            }
                         }
                     }
                 }
@@ -178,7 +178,7 @@ fun DownloadOfflineDataScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "Informacje o nagraniu",
+                            "Recording Information",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.White
@@ -201,9 +201,9 @@ fun DownloadOfflineDataScreen(
                         val durationSec = (samples * timeBaseMs) / 1000.0
                         
                         InfoRow("Data:", date, androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Kanały:", headerData!!["rc"] ?: "?", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Channels:", headerData!!["rc"] ?: "?", androidx.compose.ui.graphics.Color.White)
                         InfoRow("Trigger:", "P${headerData!!["tc"]} @ ${headerData!!["th"]}%", androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Próbek:", "$samples", androidx.compose.ui.graphics.Color.White)
+                        InfoRow("Samples:", "$samples", androidx.compose.ui.graphics.Color.White)
                         InfoRow("Time Base:", "${timeBaseMs}ms", androidx.compose.ui.graphics.Color.White)
                         InfoRow("Duration:", "%.1fs".format(durationSec), androidx.compose.ui.graphics.Color.White)
                         
@@ -221,8 +221,9 @@ fun DownloadOfflineDataScreen(
                 }
             }
 
-            // Download Button
-            Button(
+            // Download Button - only show when mode is 'R'
+            if (currentMode == 'R') {
+                Button(
                 onClick = {
                     isDownloading = true
                     errorMessage = ""
@@ -272,7 +273,7 @@ fun DownloadOfflineDataScreen(
                                 onSaveCSV(header, allData, filename) { success, message ->
                                     isDownloading = false
                                     if (success) {
-                                        statusMessage = "✅ Dane zapisane: $filename"
+                                        statusMessage = "✅ Data saved to: $filename"
                                         downloadProgress = ""
                                     } else {
                                         errorMessage = "❌ Błąd zapisu: $message"
@@ -306,13 +307,14 @@ fun DownloadOfflineDataScreen(
                         downloadNextChannel()
                     }
                 },
-                enabled = !isDownloading && (currentMode == 'N' || currentMode == 'R'),
+                enabled = !isDownloading && currentMode == 'R',
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
                 )
             ) {
-                Text("Pobierz dane z SensorBox")
+                Text("Download Offline Recording Data")
+            }
             }
 
             // Progress

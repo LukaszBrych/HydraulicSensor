@@ -89,6 +89,25 @@ class MainActivity : ComponentActivity() {
     
     // CSV Logger dla live reading
     private var csvLogger: CSVLogger? = null
+    
+    // Turbine calibration data (K51-K55, K61-K62)
+    private val turbineCalibrationData = mutableStateMapOf<String, List<String>>()
+    
+    // Turbine names (P5R1-P5R5, P6R1-P6R2)
+    private val turbineNames = mutableStateMapOf<String, String>()
+    
+    private fun loadTurbineNames() {
+        val prefs = getSharedPreferences("TurbineNames", MODE_PRIVATE)
+        listOf("P5R1", "P5R2", "P5R3", "P5R4", "P5R5", "P6R1", "P6R2").forEach { key ->
+            turbineNames[key] = prefs.getString(key, "") ?: ""
+        }
+    }
+    
+    private fun saveTurbineName(key: String, name: String) {
+        val prefs = getSharedPreferences("TurbineNames", MODE_PRIVATE)
+        prefs.edit().putString(key, name).apply()
+        turbineNames[key] = name
+    }
 
     private val charUuid = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
     private val serviceUuid = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb")
@@ -155,7 +174,6 @@ class MainActivity : ComponentActivity() {
             characteristic.value = cmd.toByteArray()
             characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             val ok = gatt.writeCharacteristic(characteristic)
-            Log.d("SensorBox", "writeCharacteristic (enqueued): $cmd  -> result:$ok  queueRemaining:${writeQueue.size}")
             if (!ok) {
                 handler.postDelayed({ processNextWrite(gatt) }, 100)
             }
@@ -280,7 +298,6 @@ class MainActivity : ComponentActivity() {
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             isWriting = false
-            Log.d("SensorBox", "onCharacteristicWrite status=$status remainingQueue=${writeQueue.size}")
             processNextWrite(gatt)
         }
 
@@ -308,7 +325,6 @@ class MainActivity : ComponentActivity() {
             
             val text = String(raw)
             buffer += text
-            Log.d("SensorBox", "Odebrano RAW: $text (buffer: ${buffer.length} znaków)")
             
             // Obsługa odpowiedzi tekstowych (checkOfflineMode, getOfflineHeader)
             if (isWaitingForResponse) {
@@ -407,7 +423,7 @@ class MainActivity : ComponentActivity() {
                             val rawVal = parts[i].replace("[^0-9.-]".toRegex(), "")
                             val value = rawVal.toDoubleOrNull()
                             channelValues[i] =
-                                if (value != null) "P${i + 1}: $value" else "P${i + 1}: brak czujnika"
+                                if (value != null) "P${i + 1}: $value" else "P${i + 1}: ---"
                             
                             // Zapisz do CSV jeśli jest wartość
                             if (value != null) {
@@ -442,8 +458,6 @@ class MainActivity : ComponentActivity() {
 
         // Parsowanie odpowiedzi na komendy
         private fun parseCommandResponse(response: String): Boolean {
-            Log.d("SensorBox", "parseCommandResponse: '$response'")
-            
             // Komenda 'p' - odpowiedź: np. "555212" (6 cyfr 1-5)
             if (response.matches(Regex("^[1-5]{6}\\s*$"))) {
                 Log.d("SensorBox", "✅ Odpowiedź 'p': Aktualne zakresy = $response")
@@ -481,6 +495,13 @@ class MainActivity : ComponentActivity() {
                 lines.forEach { line ->
                     if (line.startsWith("K5") || line.startsWith("K6")) {
                         Log.d("SensorBox", "   $line")
+                        // Parse line format: "K51 2625.01 26.64 1290.76 13.12 164.85 1.79"
+                        val parts = line.trim().split(Regex("\\s+"))
+                        if (parts.size >= 7) {
+                            val key = parts[0] // K51, K52, etc.
+                            val values = parts.subList(1, 7) // 6 values
+                            turbineCalibrationData[key] = values
+                        }
                     }
                 }
                 return true
@@ -536,6 +557,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         bluetoothAdapter = (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
         requestPermissionsIfNeeded()
+        loadTurbineNames()
 
         setContent {
             var currentScreen by remember { mutableStateOf("main") }
@@ -578,7 +600,9 @@ class MainActivity : ComponentActivity() {
                             onCommandTest = { currentScreen = "commands" },
                             onOfflineConfig = { currentScreen = "offlineConfig" },
                             onDownloadData = { currentScreen = "downloadData" },
-                            onLiveRecordings = { currentScreen = "liveRecordings" }
+                            onLiveRecordings = { currentScreen = "liveRecordings" },
+                            onTurbineCalibration = { currentScreen = "turbineCalibration" },
+                            turbineNames = turbineNames.toMap()
                         )
                         
                         "liveRecordings" -> LiveRecordingsScreen(
@@ -621,6 +645,20 @@ class MainActivity : ComponentActivity() {
                             },
                             onStopRecording = { stopOfflineRecording() },
                             onClearMemory = { callback -> clearOfflineMemory(callback) }
+                        )
+                        
+                        "turbineCalibration" -> TurbineCalibrationScreen(
+                            onBackClick = { currentScreen = "main" },
+                            onSendCommand = { command -> 
+                                gatt?.let { enqueueWrite(it, command) }
+                            },
+                            initialCalibrationData = turbineCalibrationData.toMap(),
+                            onLoadData = {
+                                // Query turbine calibration data
+                                gatt?.let { enqueueWrite(it, "g") }
+                            },
+                            turbineNames = turbineNames.toMap(),
+                            onSaveTurbineName = { key, name -> saveTurbineName(key, name) }
                         )
                     }
                 }
@@ -972,13 +1010,15 @@ class MainActivity : ComponentActivity() {
         isReadingLive.value = true
         handler.post(liveReadRunnable)
         
-        // Start CSV logging
-        if (csvLogger == null) {
-            csvLogger = CSVLogger(this)
-        }
-        val activeChannels = (1..6).toList()
-        csvLogger?.startLogging(activeChannels, displayUnits.toList())
-        Log.d("SensorBox", "Started CSV logging for live reading")
+        // Start CSV logging po 1 sekundzie opóźnienia
+        handler.postDelayed({
+            if (csvLogger == null) {
+                csvLogger = CSVLogger(this)
+            }
+            val activeChannels = (1..6).toList()
+            csvLogger?.startLogging(activeChannels, displayUnits.toList())
+            Log.d("SensorBox", "Started CSV logging for live reading (after 1s delay)")
+        }, 1000)
     }
 
     private fun stopLiveRead(){
