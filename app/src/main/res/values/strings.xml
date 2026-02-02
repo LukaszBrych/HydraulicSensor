@@ -1,3 +1,191 @@
 <resources>
+    <!-- App Name -->
     <string name="app_name">HydraulicSensorApp</string>
+    
+    <!-- Common -->
+    <string name="button_connect">Connect</string>
+    <string name="button_disconnect">Disconnect</string>
+    <string name="button_start">Start</string>
+    <string name="button_stop">Stop</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_save">Save</string>
+    <string name="button_delete">Delete</string>
+    <string name="button_view">View</string>
+    <string name="button_share">Share</string>
+    <string name="content_desc_back">Back</string>
+    <string name="content_desc_close">Close</string>
+    <string name="content_desc_menu">Menu</string>
+    
+    <!-- Status -->
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_no_data">No data</string>
+    <string name="status_no_sensor">No sensor</string>
+    <string name="status_not_configured">Not configured</string>
+    
+    <!-- Main Screen -->
+    <string name="app_bar_title">Hydraulic Sensor</string>
+    <string name="content_desc_range_settings">Range Settings</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_item_test_commands">Test Commands</string>
+    <string name="menu_item_offline_recording_setup">Offline Recording Setup</string>
+    <string name="menu_item_download_offline_data">Download Offline Data</string>
+    <string name="menu_item_live_recordings">Live Recordings</string>
+    <string name="menu_item_turbine_calibration">Turbine Calibration</string>
+    <string name="menu_item_language">Language</string>
+    
+    <!-- Range Settings Dialog -->
+    <string name="dialog_title_range_settings">Range Settings</string>
+    <string name="sensor_type_pressure_4_20ma">Pressure (4–20mA)</string>
+    <string name="sensor_type_differential_pressure">Differential / Pressure</string>
+    <string name="sensor_type_temperature">Temperature</string>
+    <string name="sensor_type_flow_turbine">Flow (Turbine)</string>
+    <string name="sensor_type_multi_function">Multi-function</string>
+    <string name="sensor_type_unknown">Unknown</string>
+    <string name="range_label_r1">R1</string>
+    <string name="range_label_r2">R2</string>
+    <string name="range_label_r3">R3</string>
+    <string name="range_label_r4">R4</string>
+    <string name="range_label_r5">R5</string>
+    <string name="range_label_flow_r1">Flow R1</string>
+    <string name="range_label_flow_r2">Flow R2</string>
+    <string name="range_label_p1_q1">P1×Q1</string>
+    <string name="range_label_rpm_1">RPM-1</string>
+    <string name="range_label_rpm_2">RPM-2</string>
+    <string name="error_invalid_value">Invalid value</string>
+    <string name="error_negative_value">Value cannot be negative</string>
+    
+    <!-- Turbine Calibration Screen -->
+    <string name="screen_title_turbine_calibration">Turbine Calibration</string>
+    <string name="turbine_range_p5_r1">P5 R1</string>
+    <string name="turbine_range_p5_r2">P5 R2</string>
+    <string name="turbine_range_p5_r3">P5 R3</string>
+    <string name="turbine_range_p5_r4">P5 R4</string>
+    <string name="turbine_range_p5_r5">P5 R5</string>
+    <string name="turbine_range_p6_r1">P6 R1</string>
+    <string name="turbine_range_p6_r2">P6 R2</string>
+    <string name="placeholder_turbine_name">e.g., Turbine 1</string>
+    <string name="label_hz">Hz</string>
+    <string name="label_lpm">LPM</string>
+    <string name="button_save_calibration">Save Calibration</string>
+    
+    <!-- Live Recordings Screen -->
+    <string name="screen_title_live_recordings">Live Recordings</string>
+    <string name="empty_state_no_recordings">No recordings yet</string>
+    <string name="empty_state_start_reading">Start Live Reading to create recordings</string>
+    <string name="dialog_title_delete_recording">Delete Recording?</string>
+    <string name="dialog_message_delete_recording">Are you sure you want to delete %s?</string>
+    <string name="label_recording_date">Date: %s</string>
+    <string name="label_recording_size">Size: %s</string>
+    <string name="label_recording_samples">Samples: %s</string>
+    <string name="label_date">Date: %s</string>
+    <string name="label_size">Size: %s</string>
+    <string name="label_samples_count">Samples: %d</string>
+    <string name="share_chooser_title">Share CSV</string>
+    <string name="file_size_kb">%d KB</string>
+    <string name="file_size_mb">%.2f MB</string>
+    
+    <!-- Recording Viewer Screen -->
+    <string name="subtitle_samples_count">%d samples</string>
+    <string name="button_toggle_table">📊 Table</string>
+    <string name="button_toggle_chart">📈 Chart</string>
+    <string name="channel_label">P%d</string>
+    <string name="channel_label_with_unit">P%d (%s)</string>
+    <string name="label_min_value">Min: %s</string>
+    <string name="label_max_value">Max: %s</string>
+    <string name="label_avg_value">Avg: %s</string>
+    <string name="value_not_available">N/A</string>
+    <string name="table_header_sample">Sample</string>
+    <string name="table_header_time">Time (s)</string>
+    <string name="table_value_missing">-</string>
+    
+    <!-- Offline Recording Setup Screen -->
+    <string name="screen_title_offline_recording_setup">Offline Recording Setup</string>
+    <string name="section_trigger_conditions">Trigger Conditions</string>
+    <string name="label_trigger_channel_p1_p4">Trigger Channel (only P1-P4)</string>
+    <string name="channel_p1">P1</string>
+    <string name="channel_p2">P2</string>
+    <string name="channel_p3">P3</string>
+    <string name="channel_p4">P4</string>
+    <string name="channel_p5">P5</string>
+    <string name="channel_p6">P6</string>
+    <string name="label_threshold_percent">Threshold: %d%%</string>
+    <string name="label_edge">Edge</string>
+    <string name="option_rising_edge">Rising</string>
+    <string name="option_falling_edge">Falling</string>
+    <string name="section_recording_channels">Recording Channels</string>
+    <string name="info_active_channels_max_samples">Active channels: %1$d (max samples: %2$dk)</string>
+    <string name="section_timing">Timing</string>
+    <string name="label_nr_of_samples">Nr of Samples: %d</string>
+    <string name="label_time_base">Time Base</string>
+    <string name="time_base_1ms">1ms</string>
+    <string name="time_base_10ms">10ms</string>
+    <string name="time_base_100ms">100ms</string>
+    <string name="time_base_1s">1s</string>
+    <string name="time_base_10s">10s</string>
+    <string name="label_duration_seconds">Duration: %ds</string>
+    <string name="button_start_recording">Start Recording</string>
+    <string name="button_stop_recording">Stop Recording</string>
+    <string name="info_trigger_wait_message">After starting, SensorBox will wait for trigger condition. Recording starts automatically when trigger threshold is crossed.</string>
+    
+    <!-- Recording Viewer Screen -->
+    <string name="label_sample_count">%d samples</string>
+    <string name="button_view_table">Table</string>
+    <string name="button_view_chart">Chart</string>
+    <string name="label_stats_min_max_avg">Min: %1$s | Max: %2$s | Avg: %3$s</string>
+    <string name="label_sample">Sample</string>
+    <string name="label_time_seconds">Time (s)</string>
+    
+    <!-- Download Offline Data Screen -->
+    <string name="screen_title_download_offline_data">Download Offline Data</string>
+    <string name="card_title_status_sensorbox">Status SensorBox</string>
+    <string name="content_desc_status_info">Status</string>
+    <string name="status_checking">Checking status…</string>
+    <string name="status_ready_for_recording">✅ Ready for Offline Recording</string>
+    <string name="status_download_completed">✅ Offline Data Download has been completed</string>
+    <string name="status_unknown_mode">⚠️ Status: %c</string>
+    <string name="button_check_status">Check Status</string>
+    <string name="note_title">ℹ️ Note</string>
+    <string name="note_power_cycle_required">Before performing a new Offline Recording, you must physically power cycle the SensorBox (turn it off and on).</string>
+    <string name="card_title_recording_information">Recording Information</string>
+    <string name="label_data">Data:</string>
+    <string name="label_channels">Channels:</string>
+    <string name="label_trigger">Trigger:</string>
+    <string name="label_samples">Samples:</string>
+    <string name="label_time_base_colon">Time Base:</string>
+    <string name="label_duration">Duration:</string>
+    <string name="label_end_values">End Values:</string>
+    <string name="label_channel_end_value">P%d:</string>
+    <string name="time_base_ms_format">%dms</string>
+    <string name="duration_seconds_format">%.1fs</string>
+    <string name="trigger_format">P%1$d @ %2$s%%</string>
+    <string name="button_download_offline_data">Download Offline Recording Data</string>
+    <string name="status_downloading_header">Downloading header…</string>
+    <string name="error_header_download_failed">Failed to download header</string>
+    <string name="status_header_downloaded">Header downloaded</string>
+    <string name="error_no_channels_to_download">No channels to download</string>
+    <string name="status_downloading_channel_progress">Downloading P%1$d… (%2$d/%3$d)</string>
+    <string name="status_saving_csv">Saving CSV…</string>
+    <string name="success_data_saved">✅ Data saved to: %s</string>
+    <string name="error_save_failed">❌ Save error: %s</string>
+    <string name="error_channel_download_failed">Failed to download data from P%d</string>
+    <string name="error_status_check_failed">Failed to check status</string>
+    
+    <!-- Language Settings -->
+    <string name="language_english">English</string>
+    <string name="language_polish">Polski</string>
+    
+    <!-- Messages -->
+    <string name="message_calibration_saved">Calibration saved</string>
+    
+    <!-- Range Settings Dialog -->
+    <string name="label_unit">Unit</string>
+    <string name="label_turbine_name">Turbine Name</string>
+    <string name="label_not_configured">Not configured</string>
+    <string name="label_current_end_value">Current End Value (W)</string>
+    <string name="label_active_range">Active Range</string>
+    <string name="label_range_values">Range Values</string>
+    <string name="info_active_range">Active Range: R%1$d</string>
+    <string name="info_range_value">Value: %1$s %2$s (%3$s)</string>
 </resources>

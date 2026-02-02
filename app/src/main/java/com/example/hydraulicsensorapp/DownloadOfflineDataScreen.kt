@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -31,6 +33,7 @@ fun DownloadOfflineDataScreen(
     onStopRecording: () -> Unit,
     onClearMemory: (callback: (Boolean) -> Unit) -> Unit
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isChecking by remember { mutableStateOf(false) }
     var currentMode by remember { mutableStateOf<Char?>(null) }
@@ -44,10 +47,10 @@ fun DownloadOfflineDataScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Download Offline Data") },
+                title = { Text(stringResource(R.string.screen_title_download_offline_data)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Wróć")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.content_desc_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -82,9 +85,9 @@ fun DownloadOfflineDataScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Info, "Status", tint = androidx.compose.ui.graphics.Color.White)
+                        Icon(Icons.Default.Info, stringResource(R.string.content_desc_status_info), tint = androidx.compose.ui.graphics.Color.White)
                         Text(
-                            "Status SensorBox",
+                            stringResource(R.string.card_title_status_sensorbox),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.White
@@ -102,7 +105,7 @@ fun DownloadOfflineDataScreen(
                                 color = androidx.compose.ui.graphics.Color(0xFF10B981)
                             )
                             Text(
-                                "Checking status...",
+                                stringResource(R.string.status_checking),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = androidx.compose.ui.graphics.Color(0xFF94A3B8)
                             )
@@ -110,15 +113,16 @@ fun DownloadOfflineDataScreen(
                     } else if (currentMode != null) {
                         Text(
                             when (currentMode) {
-                                'N' -> "✅ Ready for Offline Recording"
-                                'R' -> "✅ Offline Data Download has been completed"
-                                else -> "⚠️ Status: $currentMode"
+                                'N' -> stringResource(R.string.status_ready_for_recording)
+                                'R' -> stringResource(R.string.status_download_completed)
+                                else -> stringResource(R.string.status_unknown_mode, currentMode!!)
                             },
                             style = MaterialTheme.typography.bodyLarge,
                             color = androidx.compose.ui.graphics.Color.White
                         )
                     }
                     
+                    val errorCheckStatusText = stringResource(R.string.error_status_check_failed)
                     Button(
                         onClick = {
                             isChecking = true
@@ -127,7 +131,7 @@ fun DownloadOfflineDataScreen(
                                 currentMode = mode
                                 isChecking = false
                                 if (mode == null) {
-                                    errorMessage = "Nie udało się sprawdzić statusu"
+                                    errorMessage = errorCheckStatusText
                                 }
                             }
                         },
@@ -137,7 +141,7 @@ fun DownloadOfflineDataScreen(
                             containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
                         )
                     ) {
-                        Text("Check Status")
+                        Text(stringResource(R.string.button_check_status))
                     }
                     
                     // Note for Status R - power cycle required
@@ -148,14 +152,14 @@ fun DownloadOfflineDataScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    "ℹ️ Note",
+                                    stringResource(R.string.note_title),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = androidx.compose.ui.graphics.Color(0xFF10B981),
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    "Before performing a new Offline Recording, you must physically power cycle the SensorBox (turn it off and on).",
+                                    stringResource(R.string.note_power_cycle_required),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = androidx.compose.ui.graphics.Color(0xFF94A3B8)
                                 )
@@ -178,7 +182,7 @@ fun DownloadOfflineDataScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "Recording Information",
+                            stringResource(R.string.card_title_recording_information),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.White
@@ -200,16 +204,16 @@ fun DownloadOfflineDataScreen(
                         val timeBaseMs = headerData!!["tb"]?.toIntOrNull() ?: 1
                         val durationSec = (samples * timeBaseMs) / 1000.0
                         
-                        InfoRow("Data:", date, androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Channels:", headerData!!["rc"] ?: "?", androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Trigger:", "P${headerData!!["tc"]} @ ${headerData!!["th"]}%", androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Samples:", "$samples", androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Time Base:", "${timeBaseMs}ms", androidx.compose.ui.graphics.Color.White)
-                        InfoRow("Duration:", "%.1fs".format(durationSec), androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_data), date, androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_channels), headerData!!["rc"] ?: "?", androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_trigger), "P${headerData!!["tc"]} @ ${headerData!!["th"]}%", androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_samples), "$samples", androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_time_base_colon), "${timeBaseMs}ms", androidx.compose.ui.graphics.Color.White)
+                        InfoRow(stringResource(R.string.label_duration), "%.1fs".format(durationSec), androidx.compose.ui.graphics.Color.White)
                         
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         
-                        Text("End Values:", fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
+                        Text(stringResource(R.string.label_end_values), fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
                         (1..4).forEach { ch ->
                             InfoRow(
                                 "P$ch:",
@@ -228,18 +232,18 @@ fun DownloadOfflineDataScreen(
                     isDownloading = true
                     errorMessage = ""
                     statusMessage = ""
-                    downloadProgress = "Pobieranie nagłówka..."
+                    downloadProgress = context.getString(R.string.status_downloading_header)
                     
                     // Krok 1: Pobierz nagłówek
                     onGetHeader { header ->
                         if (header == null) {
-                            errorMessage = "Nie udało się pobrać nagłówka"
+                            errorMessage = context.getString(R.string.error_header_download_failed)
                             isDownloading = false
                             return@onGetHeader
                         }
                         
                         headerData = header
-                        downloadProgress = "Nagłówek pobrany"
+                        downloadProgress = context.getString(R.string.status_header_downloaded)
                         
                         // Krok 2: Pobierz dane z kanałów
                         // rc to string "1111" gdzie każdy znak to bit dla P1-P4
@@ -252,7 +256,7 @@ fun DownloadOfflineDataScreen(
                         }
                         
                         if (channels.isEmpty()) {
-                            errorMessage = "Brak kanałów do pobrania"
+                            errorMessage = context.getString(R.string.error_no_channels_to_download)
                             isDownloading = false
                             return@onGetHeader
                         }
@@ -263,7 +267,7 @@ fun DownloadOfflineDataScreen(
                         fun downloadNextChannel() {
                             if (currentChannelIndex >= channels.size) {
                                 // Wszystkie kanały pobrane
-                                downloadProgress = "Zapisywanie CSV..."
+                                downloadProgress = context.getString(R.string.status_saving_csv)
                                 downloadedData = allData
                                 
                                 // Krok 3: Zapisz do CSV
@@ -273,10 +277,10 @@ fun DownloadOfflineDataScreen(
                                 onSaveCSV(header, allData, filename) { success, message ->
                                     isDownloading = false
                                     if (success) {
-                                        statusMessage = "✅ Data saved to: $filename"
+                                        statusMessage = context.getString(R.string.success_data_saved, filename)
                                         downloadProgress = ""
                                     } else {
-                                        errorMessage = "❌ Błąd zapisu: $message"
+                                        errorMessage = context.getString(R.string.error_save_failed, message ?: "")
                                         downloadProgress = ""
                                     }
                                 }
@@ -284,7 +288,7 @@ fun DownloadOfflineDataScreen(
                             }
                             
                             val channel = channels[currentChannelIndex]
-                            downloadProgress = "Pobieranie P$channel... (${currentChannelIndex + 1}/${channels.size})"
+                            downloadProgress = context.getString(R.string.status_downloading_channel_progress, channel, currentChannelIndex + 1, channels.size)
                             
                             val endValue = header["e$channel"]?.toFloatOrNull() ?: 100f
                             
@@ -298,7 +302,7 @@ fun DownloadOfflineDataScreen(
                                         downloadNextChannel()
                                     }
                                 } else {
-                                    errorMessage = "Nie udało się pobrać danych z P$channel"
+                                    errorMessage = context.getString(R.string.error_channel_download_failed, channel)
                                     isDownloading = false
                                 }
                             }
@@ -313,7 +317,7 @@ fun DownloadOfflineDataScreen(
                     containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)
                 )
             ) {
-                Text("Download Offline Recording Data")
+                Text(stringResource(R.string.button_download_offline_data))
             }
             }
 

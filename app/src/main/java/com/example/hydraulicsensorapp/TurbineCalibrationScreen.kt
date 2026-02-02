@@ -2,6 +2,7 @@ package com.example.hydraulicsensorapp
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,7 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
@@ -22,7 +25,8 @@ fun TurbineCalibrationScreen(
     initialCalibrationData: Map<String, List<String>> = emptyMap(),
     onLoadData: () -> Unit,
     turbineNames: Map<String, String> = emptyMap(),
-    onSaveTurbineName: (String, String) -> Unit = { _, _ -> }
+    onSaveTurbineName: (String, String) -> Unit = { _, _ -> },
+    onSaveComplete: () -> Unit = {}  // Callback po zapisaniu kalibracji
 ) {
     // State for P5 R1-R5 and P6 R1-R2
     val p5r1 = remember { mutableStateListOf("", "", "", "", "", "") }
@@ -90,10 +94,10 @@ fun TurbineCalibrationScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Turbine Calibration") },
+                title = { Text(stringResource(R.string.screen_title_turbine_calibration)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.content_desc_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -114,25 +118,25 @@ fun TurbineCalibrationScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // P5 R1
-            TurbineRangeCard("P5 R1", p5r1, p5r1Name) { p5r1Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p5_r1), p5r1, p5r1Name) { p5r1Name = it }
             
             // P5 R2
-            TurbineRangeCard("P5 R2", p5r2, p5r2Name) { p5r2Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p5_r2), p5r2, p5r2Name) { p5r2Name = it }
             
             // P5 R3
-            TurbineRangeCard("P5 R3", p5r3, p5r3Name) { p5r3Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p5_r3), p5r3, p5r3Name) { p5r3Name = it }
             
             // P5 R4
-            TurbineRangeCard("P5 R4", p5r4, p5r4Name) { p5r4Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p5_r4), p5r4, p5r4Name) { p5r4Name = it }
             
             // P5 R5
-            TurbineRangeCard("P5 R5", p5r5, p5r5Name) { p5r5Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p5_r5), p5r5, p5r5Name) { p5r5Name = it }
             
             // P6 R1
-            TurbineRangeCard("P6 R1", p6r1, p6r1Name) { p6r1Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p6_r1), p6r1, p6r1Name) { p6r1Name = it }
             
             // P6 R2
-            TurbineRangeCard("P6 R2", p6r2, p6r2Name) { p6r2Name = it }
+            TurbineRangeCard(stringResource(R.string.turbine_range_p6_r2), p6r2, p6r2Name) { p6r2Name = it }
             
             // Save Button
             Button(
@@ -175,6 +179,9 @@ fun TurbineCalibrationScreen(
                         val cmd = "K62 ${p6r2.joinToString(" ")}"
                         onSendCommand(cmd)
                     }
+                    
+                    // Call onSaveComplete to return to main screen with message
+                    onSaveComplete()
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +190,7 @@ fun TurbineCalibrationScreen(
                     containerColor = Color(0xFF10B981)
                 )
             ) {
-                Text("Save Calibration", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.button_save_calibration), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -214,7 +221,7 @@ fun TurbineRangeCard(
             // Turbine Name field
             Column {
                 Text(
-                    "Turbine Name",
+                    stringResource(R.string.label_turbine_name),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF94A3B8),
                     modifier = Modifier.padding(bottom = 4.dp)
@@ -232,7 +239,7 @@ fun TurbineRangeCard(
                         unfocusedBorderColor = Color(0xFF475569)
                     ),
                     singleLine = true,
-                    placeholder = { Text("e.g., Turbine 1", color = Color(0xFF64748B)) }
+                    placeholder = { Text(stringResource(R.string.placeholder_turbine_name), color = Color(0xFF64748B)) }
                 )
             }
             
@@ -243,8 +250,8 @@ fun TurbineRangeCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    TurbineTextField("Hz", values[0], modifier = Modifier.weight(1f)) { values[0] = it }
-                    TurbineTextField("LPM", values[1], modifier = Modifier.weight(1f)) { values[1] = it }
+                    TurbineTextField(stringResource(R.string.label_hz), values[0], modifier = Modifier.weight(1f)) { values[0] = it }
+                    TurbineTextField(stringResource(R.string.label_lpm), values[1], modifier = Modifier.weight(1f)) { values[1] = it }
                 }
                 
                 // Row 2
@@ -252,8 +259,8 @@ fun TurbineRangeCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    TurbineTextField("Hz", values[2], modifier = Modifier.weight(1f)) { values[2] = it }
-                    TurbineTextField("LPM", values[3], modifier = Modifier.weight(1f)) { values[3] = it }
+                    TurbineTextField(stringResource(R.string.label_hz), values[2], modifier = Modifier.weight(1f)) { values[2] = it }
+                    TurbineTextField(stringResource(R.string.label_lpm), values[3], modifier = Modifier.weight(1f)) { values[3] = it }
                 }
                 
                 // Row 3
@@ -261,8 +268,8 @@ fun TurbineRangeCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    TurbineTextField("Hz", values[4], modifier = Modifier.weight(1f)) { values[4] = it }
-                    TurbineTextField("LPM", values[5], modifier = Modifier.weight(1f)) { values[5] = it }
+                    TurbineTextField(stringResource(R.string.label_hz), values[4], modifier = Modifier.weight(1f)) { values[4] = it }
+                    TurbineTextField(stringResource(R.string.label_lpm), values[5], modifier = Modifier.weight(1f)) { values[5] = it }
                 }
             }
         }
@@ -285,8 +292,9 @@ fun TurbineTextField(
         )
         OutlinedTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { newValue -> onValueChange(newValue.replace(',', '.')) },
             modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,

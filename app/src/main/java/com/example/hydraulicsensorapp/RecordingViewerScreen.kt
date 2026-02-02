@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -47,7 +48,7 @@ fun RecordingViewerScreen(
                     Column {
                         Text(file.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "${csvData?.samples?.size ?: 0} samples",
+                            stringResource(R.string.label_sample_count, csvData?.samples?.size ?: 0),
                             color = Color(0xFF94A3B8),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -55,7 +56,7 @@ fun RecordingViewerScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, stringResource(R.string.content_desc_back), tint = Color.White)
                     }
                 },
                 actions = {
@@ -64,7 +65,7 @@ fun RecordingViewerScreen(
                         onClick = { viewMode = if (viewMode == "chart") "table" else "chart" }
                     ) {
                         Text(
-                            if (viewMode == "chart") "📊 Table" else "📈 Chart",
+                            if (viewMode == "chart") "📊 " + stringResource(R.string.button_view_table) else "📈 " + stringResource(R.string.button_view_chart),
                             color = Color(0xFF3B82F6)
                         )
                     }
@@ -150,9 +151,11 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
                     )
                     
                     Text(
-                        "Min: ${channel.min?.let { "%.2f".format(it) } ?: "N/A"} | " +
-                        "Max: ${channel.max?.let { "%.2f".format(it) } ?: "N/A"} | " +
-                        "Avg: ${channel.avg?.let { "%.2f".format(it) } ?: "N/A"}",
+                        stringResource(R.string.label_stats_min_max_avg, 
+                            channel.min?.let { "%.2f".format(it) } ?: "N/A",
+                            channel.max?.let { "%.2f".format(it) } ?: "N/A",
+                            channel.avg?.let { "%.2f".format(it) } ?: "N/A"
+                        ),
                         color = Color(0xFF94A3B8),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -279,9 +282,9 @@ fun TableView(data: CSVData, modifier: Modifier = Modifier) {
                     .horizontalScroll(rememberScrollState())
                     .padding(12.dp)
             ) {
-                // Sample number column
+                // Sample number column header
                 Text(
-                    "Sample",
+                    stringResource(R.string.label_sample),
                     modifier = Modifier.width(70.dp),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
@@ -290,7 +293,7 @@ fun TableView(data: CSVData, modifier: Modifier = Modifier) {
                 
                 // Time column
                 Text(
-                    "Time (s)",
+                    stringResource(R.string.label_time_seconds),
                     modifier = Modifier.width(80.dp),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,

@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -74,10 +75,10 @@ fun OfflineRecordingConfigScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Offline Recording Setup") },
+                title = { Text(stringResource(R.string.screen_title_offline_recording_setup)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.Default.ArrowBack, stringResource(R.string.content_desc_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -104,7 +105,7 @@ fun OfflineRecordingConfigScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Trigger Conditions",
+                        stringResource(R.string.section_trigger_conditions),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -112,7 +113,7 @@ fun OfflineRecordingConfigScreen(
                     )
                     
                     // Trigger Channel
-                    Text("Trigger Channel (only P1-P4)", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
+                    Text(stringResource(R.string.label_trigger_channel_p1_p4), color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (1..4).forEach { ch ->
                             FilterChip(
@@ -135,7 +136,7 @@ fun OfflineRecordingConfigScreen(
                     Spacer(Modifier.height(16.dp))
                     
                     // Threshold
-                    Text("Threshold: $triggerThreshold%", color = Color(0xFF94A3B8))
+                    Text(stringResource(R.string.label_threshold_percent, triggerThreshold), color = Color(0xFF94A3B8))
                     Slider(
                         value = triggerThreshold.toFloat(),
                         onValueChange = { triggerThreshold = it.toInt() },
@@ -146,17 +147,17 @@ fun OfflineRecordingConfigScreen(
                     Spacer(Modifier.height(16.dp))
                     
                     // Edge
-                    Text("Edge", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
+                    Text(stringResource(R.string.label_edge), color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = triggerEdge == "Rising",
                             onClick = { triggerEdge = "Rising" },
-                            label = { Text("Rising") }
+                            label = { Text(stringResource(R.string.option_rising_edge)) }
                         )
                         FilterChip(
                             selected = triggerEdge == "Falling",
                             onClick = { triggerEdge = "Falling" },
-                            label = { Text("Falling") }
+                            label = { Text(stringResource(R.string.option_falling_edge)) }
                         )
                     }
                 }
@@ -169,7 +170,7 @@ fun OfflineRecordingConfigScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Recording Channels",
+                        stringResource(R.string.section_recording_channels),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -177,7 +178,7 @@ fun OfflineRecordingConfigScreen(
                     )
                     
                     Text(
-                        "Active channels: $activeChannels (max samples: ${maxSamples/1000}k)",
+                        stringResource(R.string.info_active_channels_max_samples, activeChannels, maxSamples/1000),
                         color = Color(0xFF94A3B8),
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -224,7 +225,7 @@ fun OfflineRecordingConfigScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Timing",
+                        stringResource(R.string.section_timing),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -232,7 +233,7 @@ fun OfflineRecordingConfigScreen(
                     )
                     
                     // Number of Samples
-                    Text("Nr of Samples: $nrOfSamples", color = Color(0xFF94A3B8))
+                    Text(stringResource(R.string.label_nr_of_samples, nrOfSamples), color = Color(0xFF94A3B8))
                     Slider(
                         value = nrOfSamples.toFloat(),
                         onValueChange = { nrOfSamples = (it / 1000).toInt() * 1000 },
@@ -244,7 +245,7 @@ fun OfflineRecordingConfigScreen(
                     Spacer(Modifier.height(16.dp))
                     
                     // Time Base
-                    Text("Time Base", color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
+                    Text(stringResource(R.string.label_time_base), color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 4.dp))
                     androidx.compose.foundation.layout.FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -263,7 +264,7 @@ fun OfflineRecordingConfigScreen(
                     
                     // Duration (calculated)
                     Text(
-                        "Duration: ${durationSeconds}s",
+                        stringResource(R.string.label_duration_seconds, durationSeconds),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
@@ -291,7 +292,7 @@ fun OfflineRecordingConfigScreen(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                 ) {
-                    Text("Start Recording")
+                    Text(stringResource(R.string.button_start_recording))
                 }
                 
                 Button(
@@ -299,14 +300,13 @@ fun OfflineRecordingConfigScreen(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                 ) {
-                    Text("Stop Recording")
+                    Text(stringResource(R.string.button_stop_recording))
                 }
             }
             
             // Info text
             Text(
-                "After starting, SensorBox will wait for trigger condition. " +
-                "Recording starts automatically when trigger threshold is crossed.",
+                stringResource(R.string.info_trigger_wait_message),
                 color = Color(0xFF94A3B8),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp)

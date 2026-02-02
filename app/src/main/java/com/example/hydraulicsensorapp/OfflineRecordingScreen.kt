@@ -2,16 +2,27 @@
 
 package com.example.hydraulicsensorapp
 
+import android.content.res.Configuration
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Menu
@@ -22,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -48,11 +61,27 @@ fun OfflineRecordingScreen(
     onDownloadData: () -> Unit = {},  // Callback do pobierania offline data
     onLiveRecordings: () -> Unit = {},  // Callback do Live Recordings
     onTurbineCalibration: () -> Unit = {},  // Callback do Turbine Calibration
-    turbineNames: Map<String, String> = emptyMap()  // Turbine names for P5/P6
+    onLanguageChange: (String) -> Unit = {},  // Callback for language change
+    currentLanguage: String = "en",  // Current language code
+    turbineNames: Map<String, String> = emptyMap(),  // Turbine names for P5/P6
+    showMessage: String? = null  // Message to show in Snackbar
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
     var startCountdown by remember { mutableIntStateOf(0) }  // 0 = brak blokady, 3,2,1 = odliczanie
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show message in Snackbar when provided
+    LaunchedEffect(showMessage) {
+        if (showMessage != null) {
+            startCountdown = 3  // Start countdown when returning with message
+            snackbarHostState.showSnackbar(
+                message = showMessage,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
     
     // Countdown timer
     LaunchedEffect(startCountdown) {
@@ -64,6 +93,15 @@ fun OfflineRecordingScreen(
 
     Scaffold(
         containerColor = Color.Black,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.White
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -79,9 +117,9 @@ fun OfflineRecordingScreen(
                         ) {}
                         
                         Column {
-                            Text("Hydraulic Sensor", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(stringResource(R.string.app_bar_title), style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Text(
-                                if (connectionStatus.contains("Connected")) "Connected" else "Disconnected",
+                                if (connectionStatus.contains("Connected")) stringResource(R.string.status_connected) else stringResource(R.string.status_disconnected),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (connectionStatus.contains("Connected")) Color(0xFF10B981) else Color(0xFF94A3B8)
                             )
@@ -95,7 +133,7 @@ fun OfflineRecordingScreen(
                             onClick = onConnect,
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF60A5FA))
                         ) {
-                            Text("Connect", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.button_connect), style = MaterialTheme.typography.labelMedium)
                         }
                     } else {
                         // Gdy połączony - pokaż przycisk Rozłącz oraz Start/Stop pomiarów
@@ -107,7 +145,7 @@ fun OfflineRecordingScreen(
                                 disabledContentColor = Color(0xFF475569)
                             )
                         ) {
-                            Text("Disconnect", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.button_disconnect), style = MaterialTheme.typography.labelMedium)
                         }
                         
                         Spacer(modifier = Modifier.width(8.dp))
@@ -123,7 +161,7 @@ fun OfflineRecordingScreen(
                                 )
                             ) {
                                 Text(
-                                    if (startCountdown > 0) startCountdown.toString() else "Start",
+                                    if (startCountdown > 0) startCountdown.toString() else stringResource(R.string.button_start),
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -132,154 +170,241 @@ fun OfflineRecordingScreen(
                                 onClick = onStopMeasurement,
                                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFBBF24))
                             ) {
-                                Text("Stop", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.button_stop), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
                     
-                    // Menu dropdown
-                    var menuExpanded by remember { mutableStateOf(false) }
-                    
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = Color(0xFFCBD5E1)
-                            )
-                        }
-                        
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false },
-                            modifier = Modifier.background(Color(0xFF1E293B))
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Test Commands",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onCommandTest()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Outlined.Settings,
-                                        contentDescription = null,
-                                        tint = Color(0xFF94A3B8)
-                                    )
-                                }
-                            )
-                            
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Offline Recording Setup",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onOfflineConfig()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Outlined.Menu,
-                                        contentDescription = null,
-                                        tint = Color(0xFF94A3B8)
-                                    )
-                                }
-                            )
-                            
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Download Offline Data",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onDownloadData()
-                                },
-                                leadingIcon = {
-                                    Text("📥", style = MaterialTheme.typography.bodyMedium)
-                                }
-                            )
-                            
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Live Recordings",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onLiveRecordings()
-                                },
-                                leadingIcon = {
-                                    Text("📊", style = MaterialTheme.typography.bodyMedium)
-                                }
-                            )
-                            
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Turbine Calibration",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onTurbineCalibration()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Outlined.Settings,
-                                        contentDescription = null,
-                                        tint = Color(0xFF94A3B8)
-                                    )
-                                }
-                            )
-                        }
+                    IconButton(onClick = { menuExpanded = !menuExpanded }) {
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = Color(0xFFCBD5E1)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                SensorGrid(
-                    channelValues = channelValues,
-                    ranges = ranges,
-                    endValues = endValues,
-                    originalUnits = originalUnits,
-                    displayUnits = displayUnits,
-                    onQueryEndValues = onQueryEndValues,
-                    isReadingLive = isReadingLive,
-                    customInputs = customInputs,
-                    onRangeChange = onRangeChange,
-                    onSendRangeSettings = onSendRangeSettings,
-                    onDialogClose = { startCountdown = 3 },  // Uruchom countdown po zamknięciu dialogu
-                    turbineNames = turbineNames,
-                    modifier = Modifier.weight(1f)
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Main content
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    SensorGrid(
+                        channelValues = channelValues,
+                        ranges = ranges,
+                        endValues = endValues,
+                        originalUnits = originalUnits,
+                        displayUnits = displayUnits,
+                        onQueryEndValues = onQueryEndValues,
+                        isReadingLive = isReadingLive,
+                        customInputs = customInputs,
+                        onRangeChange = onRangeChange,
+                        onSendRangeSettings = onSendRangeSettings,
+                        onDialogClose = { startCountdown = 3 },
+                        turbineNames = turbineNames,
+                        startCountdown = startCountdown,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
-            if (isMenuOpen) {
-                // Menu identyczne jak wcześniej
+            // Side menu modal
+            AnimatedVisibility(
+                visible = menuExpanded,
+                enter = slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(300)
+                ) + fadeIn(),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(300)
+                ) + fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    // Dark overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { menuExpanded = false }
+                    )
+                    
+                    // Menu panel from right side
+                    val configuration = LocalConfiguration.current
+                    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+                    val menuWidth = 0.7f
+                    
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(menuWidth)
+                            .align(Alignment.CenterEnd),
+                        color = Color(0xFF1E293B)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(vertical = 16.dp)
+                        ) {
+                            // Menu items
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_item_test_commands),
+                                onClick = {
+                                    menuExpanded = false
+                                    onCommandTest()
+                                }
+                            )
+                            
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_item_offline_recording_setup),
+                                onClick = {
+                                    menuExpanded = false
+                                    onOfflineConfig()
+                                }
+                            )
+                            
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_item_download_offline_data),
+                                onClick = {
+                                    menuExpanded = false
+                                    onDownloadData()
+                                }
+                            )
+                            
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_item_live_recordings),
+                                onClick = {
+                                    menuExpanded = false
+                                    onLiveRecordings()
+                                }
+                            )
+                            
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_item_turbine_calibration),
+                                onClick = {
+                                    menuExpanded = false
+                                    onTurbineCalibration()
+                                }
+                            )
+                            
+                            // Language selector - last item without divider
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.menu_item_language),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    // English option
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(color = Color(0xFF3B82F6))
+                                        ) {
+                                            menuExpanded = false
+                                            onLanguageChange("en")
+                                        }
+                                    ) {
+                                        RadioButton(
+                                            selected = currentLanguage == "en",
+                                            onClick = {
+                                                menuExpanded = false
+                                                onLanguageChange("en")
+                                            },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = Color(0xFF3B82F6),
+                                                unselectedColor = Color(0xFF94A3B8)
+                                            )
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.language_english),
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                    
+                                    // Polish option
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(color = Color(0xFF3B82F6))
+                                        ) {
+                                            menuExpanded = false
+                                            onLanguageChange("pl")
+                                        }
+                                    ) {
+                                        RadioButton(
+                                            selected = currentLanguage == "pl",
+                                            onClick = {
+                                                menuExpanded = false
+                                                onLanguageChange("pl")
+                                            },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = Color(0xFF3B82F6),
+                                                unselectedColor = Color(0xFF94A3B8)
+                                            )
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.language_polish),
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+fun MenuItemWithDivider(text: String, onClick: () -> Unit) {
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(color = Color(0xFF3B82F6)),
+                    onClick = onClick
+                )
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            Text(
+                text = text,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            thickness = 0.5.dp,
+            color = Color(0xFF475569)
+        )
     }
 }
 
@@ -297,6 +422,7 @@ fun SensorGrid(
     onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
     onDialogClose: () -> Unit,
     turbineNames: Map<String, String> = emptyMap(),
+    startCountdown: Int = 0,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -321,7 +447,8 @@ fun SensorGrid(
                 onRangeChange = { idx, v -> customInputs[idx] = v; onRangeChange(idx,v) },
                 onSendRangeSettings = onSendRangeSettings,
                 onDialogClose = onDialogClose,
-                turbineNames = turbineNames
+                turbineNames = turbineNames,
+                startCountdown = startCountdown
             )
         }
     }
@@ -342,7 +469,8 @@ fun SensorTile(
     onRangeChange: (Int,String) -> Unit,
     onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
     onDialogClose: () -> Unit,
-    turbineNames: Map<String, String> = emptyMap()
+    turbineNames: Map<String, String> = emptyMap(),
+    startCountdown: Int = 0
 ) {
     var showRangeDialog by remember { mutableStateOf(false) }
     
@@ -490,15 +618,24 @@ fun SensorTile(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(id, color = Color(0xFFCBD5E1), style = MaterialTheme.typography.bodySmall)
-                IconButton(
-                    onClick = { showRangeDialog = true },
-                    enabled = !isReadingLive  // Zablokuj gdy pomiary aktywne
-                ) {
-                    Icon(
-                        Icons.Outlined.Settings, 
-                        contentDescription = "Range Settings", 
-                        tint = if (!isReadingLive) Color(0xFF94A3B8) else Color(0xFF475569)
-                    )
+                Box(contentAlignment = Alignment.Center) {
+                    IconButton(
+                        onClick = { showRangeDialog = true },
+                        enabled = !isReadingLive && startCountdown == 0  // Zablokuj gdy pomiary aktywne lub countdown
+                    ) {
+                        Icon(
+                            Icons.Outlined.Settings, 
+                            contentDescription = stringResource(R.string.content_desc_range_settings), 
+                            tint = if (!isReadingLive && startCountdown == 0) Color(0xFF94A3B8) else Color(0xFF475569)
+                        )
+                    }
+                    if (startCountdown > 0) {
+                        Text(
+                            text = startCountdown.toString(),
+                            color = Color(0xFFFBBF24),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             }
 
@@ -509,7 +646,7 @@ fun SensorTile(
             }
 
             Text(
-                text = if(formatted=="---") "No data" else if(formatted.contains("brak czujnika")) "No sensor" else "",
+                text = if(formatted=="---") stringResource(R.string.status_no_data) else if(formatted.contains("brak czujnika")) stringResource(R.string.status_no_sensor) else "",
                 color = Color(0xFF94A3B8),
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.fillMaxWidth(),

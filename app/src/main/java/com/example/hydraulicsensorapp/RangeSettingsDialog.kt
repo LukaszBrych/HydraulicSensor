@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -167,12 +168,16 @@ fun RangeSettingsDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.85f),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-        ) {
+        BoxWithConstraints {
+            // Wykryj czy dialog jest niski (landscape) czy wysoki (portrait)
+            val isShortDialog = maxHeight < 500.dp
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .fillMaxHeight(0.85f),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+            ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 Surface(
@@ -188,7 +193,7 @@ fun RangeSettingsDialog(
                     ) {
                         Column {
                             Text(
-                                "$sensorId Range Settings",
+                                "$sensorId ${stringResource(R.string.dialog_title_range_settings)}",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
@@ -218,7 +223,7 @@ fun RangeSettingsDialog(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Unit",
+                                stringResource(R.string.label_unit),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF94A3B8),
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -274,7 +279,7 @@ fun RangeSettingsDialog(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    "Turbine Name",
+                                    stringResource(R.string.label_turbine_name),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color(0xFF94A3B8),
                                     modifier = Modifier.padding(bottom = 8.dp)
@@ -286,7 +291,7 @@ fun RangeSettingsDialog(
                                     sensorId == "P6" && activeRange == 1 -> "P6R2"
                                     else -> ""
                                 }
-                                val turbineName = turbineNames[turbineKey] ?: "Not configured"
+                                val turbineName = turbineNames[turbineKey] ?: stringResource(R.string.label_not_configured)
                                 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -318,7 +323,7 @@ fun RangeSettingsDialog(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    "Current End Value (W)",
+                                    stringResource(R.string.label_current_end_value),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color(0xFF94A3B8),
                                     modifier = Modifier.padding(bottom = 8.dp)
@@ -361,7 +366,7 @@ fun RangeSettingsDialog(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Active Range",
+                                stringResource(R.string.label_active_range),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF94A3B8),
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -406,7 +411,7 @@ fun RangeSettingsDialog(
 
                     // Range TextFields
                     Text(
-                        "Range Values",
+                        stringResource(R.string.label_range_values),
                         style = MaterialTheme.typography.labelMedium,
                         color = Color(0xFF94A3B8),
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -488,7 +493,7 @@ fun RangeSettingsDialog(
                                             sensorId == "P6" && index == 1 -> "P6R2"
                                             else -> ""
                                         }
-                                        val turbineName = turbineNames[turbineKey] ?: "Not configured"
+                                        val turbineName = turbineNames[turbineKey] ?: stringResource(R.string.label_not_configured)
                                         
                                         OutlinedTextField(
                                             value = turbineName,
@@ -566,13 +571,13 @@ fun RangeSettingsDialog(
                             )
                             Column {
                                 Text(
-                                    "Active Range: R${activeRange + 1}",
+                                    stringResource(R.string.info_active_range, activeRange + 1),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    "Value: ${rangeValues[activeRange]} $currentUnit (${sensorConfig.labels[activeRange]})",
+                                    stringResource(R.string.info_range_value, rangeValues[activeRange], currentUnit, sensorConfig.labels[activeRange]),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -581,53 +586,57 @@ fun RangeSettingsDialog(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Footer Buttons
-                Surface(
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    
+                    // Footer Buttons - inside scrollable area
+                    Surface(
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color(0xFF94A3B8)
                             )
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.button_cancel))
                         }
                         
                         Button(
-                            onClick = {
-                                // Sprawdź czy są błędy
-                                val hasErrors = errors.any { it != null }
-                                if (!hasErrors) {
-                                    val result = rangeValues.mapIndexed { index, value ->
-                                        when {
-                                            sensorId == "P3" && index == 0 -> "P1-P2"
-                                            sensorId == "P6" && index == 2 -> "P1*P5"
-                                            else -> "$value $currentUnit"
+                                onClick = {
+                                    // Sprawdź czy są błędy
+                                    val hasErrors = errors.any { it != null }
+                                    if (!hasErrors) {
+                                        val result = rangeValues.mapIndexed { index, value ->
+                                            when {
+                                                sensorId == "P3" && index == 0 -> "P1-P2"
+                                                sensorId == "P6" && index == 2 -> "P1*P5"
+                                                else -> "$value $currentUnit"
+                                            }
                                         }
+                                        onSave(activeRange, result, currentUnit)  // Przekazuję currentUnit!
+                                        onDismiss()
                                     }
-                                    onSave(activeRange, result, currentUnit)  // Przekazuję currentUnit!
-                                    onDismiss()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = errors.all { it == null }
-                        ) {
-                            Text("Save")
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = errors.all { it == null }
+                            ) {
+                                Text(stringResource(R.string.button_save))
+                            }
                         }
                     }
+                    
+                    // Larger spacer for short dialogs (landscape)
+                    Spacer(modifier = Modifier.height(if (isShortDialog) 400.dp else 24.dp))
                 }
             }
+        }
         }
     }
 }

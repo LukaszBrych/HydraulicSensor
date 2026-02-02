@@ -1,0 +1,189 @@
+<resources>
+    <!-- App Name -->
+    <string name="app_name">HydraulicSensorApp</string>
+    
+    <!-- Common -->
+    <string name="button_connect">Połącz</string>
+    <string name="button_disconnect">Rozłącz</string>
+    <string name="button_start">Start</string>
+    <string name="button_stop">Stop</string>
+    <string name="button_cancel">Anuluj</string>
+    <string name="button_save">Zapisz</string>
+    <string name="button_delete">Usuń</string>
+    <string name="content_desc_back">Wstecz</string>
+    <string name="content_desc_close">Zamknij</string>
+    <string name="content_desc_menu">Menu</string>
+    
+    <!-- Status -->
+    <string name="status_connected">Połączony</string>
+    <string name="status_disconnected">Rozłączony</string>
+    <string name="status_no_data">Brak danych</string>
+    <string name="status_no_sensor">Brak czujnika</string>
+    <string name="status_not_configured">Nieskonfigurowany</string>
+    
+    <!-- Main Screen -->
+    <string name="app_bar_title">Czujnik Hydrauliczny</string>
+    <string name="content_desc_range_settings">Ustawienia Zakresu</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_item_test_commands">Test Komend</string>
+    <string name="menu_item_offline_recording_setup">Ustawienia Nagrywania Offline</string>
+    <string name="menu_item_download_offline_data">Pobieranie Danych Offline</string>
+    <string name="menu_item_live_recordings">Nagrania Live</string>
+    <string name="menu_item_turbine_calibration">Kalibracja Turbiny</string>
+    <string name="menu_item_language">Język</string>
+    
+    <!-- Range Settings Dialog -->
+    <string name="dialog_title_range_settings">Ustawienia Zakresu</string>
+    <string name="sensor_type_pressure_4_20ma">Ciśnienie (4–20mA)</string>
+    <string name="sensor_type_differential_pressure">Różnicowe / Ciśnienie</string>
+    <string name="sensor_type_temperature">Temperatura</string>
+    <string name="sensor_type_flow_turbine">Przepływ (Turbina)</string>
+    <string name="sensor_type_multi_function">Wielofunkcyjny</string>
+    <string name="sensor_type_unknown">Nieznany</string>
+    <string name="range_label_r1">R1</string>
+    <string name="range_label_r2">R2</string>
+    <string name="range_label_r3">R3</string>
+    <string name="range_label_r4">R4</string>
+    <string name="range_label_r5">R5</string>
+    <string name="range_label_flow_r1">Przepływ R1</string>
+    <string name="range_label_flow_r2">Przepływ R2</string>
+    <string name="range_label_p1_q1">P1×Q1</string>
+    <string name="range_label_rpm_1">RPM-1</string>
+    <string name="range_label_rpm_2">RPM-2</string>
+    <string name="error_invalid_value">Nieprawidłowa wartość</string>
+    <string name="error_negative_value">Wartość nie może być ujemna</string>
+    
+    <!-- Turbine Calibration Screen -->
+    <string name="screen_title_turbine_calibration">Kalibracja Turbiny</string>
+    <string name="turbine_range_p5_r1">P5 R1</string>
+    <string name="turbine_range_p5_r2">P5 R2</string>
+    <string name="turbine_range_p5_r3">P5 R3</string>
+    <string name="turbine_range_p5_r4">P5 R4</string>
+    <string name="turbine_range_p5_r5">P5 R5</string>
+    <string name="turbine_range_p6_r1">P6 R1</string>
+    <string name="turbine_range_p6_r2">P6 R2</string>
+    <string name="placeholder_turbine_name">np. Turbina 1</string>
+    <string name="label_hz">Hz</string>
+    <string name="label_lpm">LPM</string>
+    <string name="button_save_calibration">Zapisz Kalibrację</string>
+    
+    <!-- Live Recordings Screen -->
+    <string name="screen_title_live_recordings">Nagrania Live</string>
+    <string name="empty_state_no_recordings">Brak nagrań</string>
+    <string name="empty_state_start_reading">Uruchom odczyt na żywo aby utworzyć nagrania</string>
+    <string name="dialog_title_delete_recording">Usuń Nagranie?</string>
+    <string name="dialog_message_delete_recording">Czy na pewno chcesz usunąć %s?</string>
+    <string name="label_recording_date">Data: %s</string>
+    <string name="label_recording_size">Rozmiar: %s</string>
+    <string name="label_recording_samples">Próbki: %s</string>
+    <string name="label_date">Data: %s</string>
+    <string name="label_size">Rozmiar: %s</string>
+    <string name="label_samples_count">Próbki: %d</string>
+    <string name="button_view">👁️ Zobacz</string>
+    <string name="button_share">Udostępnij</string>
+    <string name="share_chooser_title">Udostępnij CSV</string>
+    <string name="file_size_kb">%d KB</string>
+    <string name="file_size_mb">%.2f MB</string>
+    
+    <!-- Recording Viewer Screen -->
+    <string name="label_sample_count">%d próbek</string>
+    <string name="button_view_table">Tabela</string>
+    <string name="button_view_chart">Wykres</string>
+    <string name="label_stats_min_max_avg">Min: %1$s | Max: %2$s | Śr: %3$s</string>
+    <string name="label_sample">Próbka</string>
+    <string name="label_time_seconds">Czas (s)</string>
+    <string name="subtitle_samples_count">%d próbek</string>
+    <string name="button_toggle_table">📊 Tabela</string>
+    <string name="button_toggle_chart">📈 Wykres</string>
+    <string name="channel_label">P%d</string>
+    <string name="channel_label_with_unit">P%d (%s)</string>
+    <string name="label_min_value">Min: %s</string>
+    <string name="label_max_value">Max: %s</string>
+    <string name="label_avg_value">Śr: %s</string>
+    <string name="value_not_available">Brak</string>
+    <string name="table_header_sample">Próbka</string>
+    <string name="table_header_time">Czas (s)</string>
+    <string name="table_value_missing">-</string>
+    
+    <!-- Offline Recording Setup Screen -->
+    <string name="screen_title_offline_recording_setup">Ustawienia Nagrywania Offline</string>
+    <string name="section_trigger_conditions">Warunki Wyzwalania</string>
+    <string name="label_trigger_channel_p1_p4">Kanał Wyzwalający (tylko P1-P4)</string>
+    <string name="channel_p1">P1</string>
+    <string name="channel_p2">P2</string>
+    <string name="channel_p3">P3</string>
+    <string name="channel_p4">P4</string>
+    <string name="channel_p5">P5</string>
+    <string name="channel_p6">P6</string>
+    <string name="label_threshold_percent">Próg: %d%%</string>
+    <string name="label_edge">Zbocze</string>
+    <string name="option_rising_edge">Narastające</string>
+    <string name="option_falling_edge">Opadające</string>
+    <string name="section_recording_channels">Kanały Nagrywania</string>
+    <string name="info_active_channels_max_samples">Aktywne kanały: %1$d (maks. próbek: %2$dk)</string>
+    <string name="section_timing">Timing</string>
+    <string name="label_nr_of_samples">Liczba Próbek: %d</string>
+    <string name="label_time_base">Baza Czasowa</string>
+    <string name="time_base_1ms">1ms</string>
+    <string name="time_base_10ms">10ms</string>
+    <string name="time_base_100ms">100ms</string>
+    <string name="time_base_1s">1s</string>
+    <string name="time_base_10s">10s</string>
+    <string name="label_duration_seconds">Czas trwania: %ds</string>
+    <string name="button_start_recording">Rozpocznij Nagrywanie</string>
+    <string name="button_stop_recording">Zatrzymaj Nagrywanie</string>
+    <string name="info_trigger_wait_message">Po uruchomieniu SensorBox czeka na warunek wyzwalający. Nagrywanie rozpoczyna się automatycznie po przekroczeniu progu.</string>
+    
+    <!-- Download Offline Data Screen -->
+    <string name="screen_title_download_offline_data">Pobieranie Danych Offline</string>
+    <string name="card_title_status_sensorbox">Status SensorBox</string>
+    <string name="content_desc_status_info">Status</string>
+    <string name="status_checking">Sprawdzanie statusu…</string>
+    <string name="status_ready_for_recording">✅ Gotowy do nagrywania offline</string>
+    <string name="status_download_completed">✅ Pobieranie danych offline zakończone</string>
+    <string name="status_unknown_mode">⚠️ Status: %c</string>
+    <string name="button_check_status">Sprawdź Status</string>
+    <string name="note_title">ℹ️ Uwaga</string>
+    <string name="note_power_cycle_required">Przed wykonaniem nowego nagrania offline, musisz fizycznie zresetować SensorBox (wyłączyć i włączyć).</string>
+    <string name="card_title_recording_information">Informacje o Nagraniu</string>
+    <string name="label_data">Dane:</string>
+    <string name="label_channels">Kanały:</string>
+    <string name="label_trigger">Wyzwalacz:</string>
+    <string name="label_samples">Próbki:</string>
+    <string name="label_time_base_colon">Baza Czasowa:</string>
+    <string name="label_duration">Czas trwania:</string>
+    <string name="label_end_values">Wartości Końcowe:</string>
+    <string name="label_channel_end_value">P%d:</string>
+    <string name="time_base_ms_format">%dms</string>
+    <string name="duration_seconds_format">%.1fs</string>
+    <string name="trigger_format">P%1$d @ %2$s%%</string>
+    <string name="button_download_offline_data">Pobierz Dane Nagrania Offline</string>
+    <string name="status_downloading_header">Pobieranie nagłówka…</string>
+    <string name="error_header_download_failed">Nie udało się pobrać nagłówka</string>
+    <string name="status_header_downloaded">Nagłówek pobrany</string>
+    <string name="error_no_channels_to_download">Brak kanałów do pobrania</string>
+    <string name="status_downloading_channel_progress">Pobieranie P%1$d… (%2$d/%3$d)</string>
+    <string name="status_saving_csv">Zapisywanie CSV…</string>
+    <string name="success_data_saved">✅ Dane zapisane w: %s</string>
+    <string name="error_save_failed">❌ Błąd zapisu: %s</string>
+    <string name="error_channel_download_failed">Nie udało się pobrać danych z P%d</string>
+    <string name="error_status_check_failed">Nie udało się sprawdzić statusu</string>
+    
+    <!-- Language Settings -->
+    <string name="language_english">English</string>
+    <string name="language_polish">Polski</string>
+    
+    <!-- Messages -->
+    <string name="message_calibration_saved">Kalibracja została zapisana</string>
+    
+    <!-- Range Settings Dialog -->
+    <string name="label_unit">Jednostka</string>
+    <string name="label_turbine_name">Nazwa turbiny</string>
+    <string name="label_not_configured">Nie skonfigurowano</string>
+    <string name="label_current_end_value">Aktualna wartość końcowa (W)</string>
+    <string name="label_active_range">Aktywny zakres</string>
+    <string name="label_range_values">Wartości zakresów</string>
+    <string name="info_active_range">Aktywny zakres: R%1$d</string>
+    <string name="info_range_value">Wartość: %1$s %2$s (%3$s)</string>
+</resources>

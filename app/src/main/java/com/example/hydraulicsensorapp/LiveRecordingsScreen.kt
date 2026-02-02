@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -41,10 +42,10 @@ fun LiveRecordingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Live Recordings", color = Color.White) },
+                title = { Text(stringResource(R.string.screen_title_live_recordings), color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, stringResource(R.string.content_desc_back), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -64,13 +65,13 @@ fun LiveRecordingsScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "No recordings yet",
+                        stringResource(R.string.empty_state_no_recordings),
                         color = Color(0xFF64748B),
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Start Live Reading to create recordings",
+                        stringResource(R.string.empty_state_start_reading),
                         color = Color(0xFF94A3B8),
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -106,8 +107,8 @@ fun LiveRecordingsScreen(
     showDeleteDialog?.let { file ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text("Delete Recording?") },
-            text = { Text("Are you sure you want to delete ${file.name}?") },
+            title = { Text(stringResource(R.string.dialog_title_delete_recording)) },
+            text = { Text(stringResource(R.string.dialog_message_delete_recording, file.name)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -116,12 +117,12 @@ fun LiveRecordingsScreen(
                         showDeleteDialog = null
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFEF4444))
+                    Text(stringResource(R.string.button_delete), color = Color(0xFFEF4444))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.button_cancel))
                 }
             }
         )
@@ -161,17 +162,17 @@ fun RecordingCard(
             ) {
                 Column {
                     Text(
-                        text = "Date: ${file.formattedDate}",
+                        text = stringResource(R.string.label_date, file.formattedDate),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "Size: ${file.formattedSize}",
+                        text = stringResource(R.string.label_size, file.formattedSize),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "Samples: ${file.sampleCount}",
+                        text = stringResource(R.string.label_samples_count, file.sampleCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF94A3B8)
                     )
@@ -192,7 +193,7 @@ fun RecordingCard(
                         contentColor = Color(0xFF10B981)
                     )
                 ) {
-                    Text("👁️ View")
+                    Text("👁️ " + stringResource(R.string.button_view))
                 }
                 
                 OutlinedButton(
@@ -208,7 +209,7 @@ fun RecordingCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Share")
+                    Text(stringResource(R.string.button_share))
                 }
                 
                 OutlinedButton(
@@ -224,7 +225,7 @@ fun RecordingCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete")
+                    Text(stringResource(R.string.button_delete))
                 }
             }
         }

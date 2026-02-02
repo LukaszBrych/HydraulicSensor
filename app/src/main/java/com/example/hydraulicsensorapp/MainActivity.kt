@@ -2,7 +2,9 @@ package com.example.hydraulicsensorapp
 
 import android.Manifest
 import android.bluetooth.*
+import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -107,6 +109,33 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("TurbineNames", MODE_PRIVATE)
         prefs.edit().putString(key, name).apply()
         turbineNames[key] = name
+    }
+    
+    // Language management
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = newBase.getSharedPreferences("Settings", MODE_PRIVATE)
+        val languageCode = prefs.getString("language", "en") ?: "en"
+        val locale = Locale(languageCode)
+        Locale.setDefault(locale)
+        val config = Configuration(newBase.resources.configuration)
+        config.setLocale(locale)
+        val context = newBase.createConfigurationContext(config)
+        super.attachBaseContext(context)
+    }
+    
+    private fun getCurrentLanguage(): String {
+        val prefs = getSharedPreferences("Settings", MODE_PRIVATE)
+        return prefs.getString("language", "en") ?: "en"
+    }
+    
+    private fun saveLanguage(languageCode: String) {
+        val prefs = getSharedPreferences("Settings", MODE_PRIVATE)
+        prefs.edit().putString("language", languageCode).apply()
+        setLocale(languageCode)
+    }
+    
+    private fun setLocale(languageCode: String) {
+        recreate()
     }
 
     private val charUuid = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
@@ -555,6 +584,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
         bluetoothAdapter = (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
         requestPermissionsIfNeeded()
         loadTurbineNames()
@@ -562,6 +592,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             var currentScreen by remember { mutableStateOf("main") }
             var selectedFile by remember { mutableStateOf<java.io.File?>(null) }
+            var showMessage by remember { mutableStateOf<String?>(null) }
+            
+            // Clear message after it's been shown
+            LaunchedEffect(showMessage) {
+                if (showMessage != null) {
+                    kotlinx.coroutines.delay(2000)  // Wait 2s before clearing
+                    showMessage = null
+                }
+            }
             
             HydraulicSensorAppTheme {
                 Surface(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
@@ -602,7 +641,10 @@ class MainActivity : ComponentActivity() {
                             onDownloadData = { currentScreen = "downloadData" },
                             onLiveRecordings = { currentScreen = "liveRecordings" },
                             onTurbineCalibration = { currentScreen = "turbineCalibration" },
-                            turbineNames = turbineNames.toMap()
+                            onLanguageChange = { languageCode -> saveLanguage(languageCode) },
+                            currentLanguage = getCurrentLanguage(),
+                            turbineNames = turbineNames.toMap(),
+                            showMessage = showMessage
                         )
                         
                         "liveRecordings" -> LiveRecordingsScreen(
@@ -658,7 +700,11 @@ class MainActivity : ComponentActivity() {
                                 gatt?.let { enqueueWrite(it, "g") }
                             },
                             turbineNames = turbineNames.toMap(),
-                            onSaveTurbineName = { key, name -> saveTurbineName(key, name) }
+                            onSaveTurbineName = { key, name -> saveTurbineName(key, name) },
+                            onSaveComplete = {
+                                showMessage = getString(R.string.message_calibration_saved)
+                                currentScreen = "main"
+                            }
                         )
                     }
                 }
