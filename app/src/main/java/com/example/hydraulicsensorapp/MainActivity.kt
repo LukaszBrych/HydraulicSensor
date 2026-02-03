@@ -469,9 +469,12 @@ class MainActivity : ComponentActivity() {
                             channelValues[i] =
                                 if (value != null) "P${i + 1}: $value" else "P${i + 1}: ---"
                             
-                            // Zapisz do CSV jeśli jest wartość
+                            // Zapisz do CSV jeśli jest wartość - zastosuj konwersję jednostek
                             if (value != null) {
-                                channelData[i + 1] = value.toFloat()
+                                val originalUnit = originalUnits[i]
+                                val displayUnit = displayUnits[i]
+                                val convertedValue = convertValue(value.toFloat(), originalUnit, displayUnit)
+                                channelData[i + 1] = convertedValue
                             }
                         }
                         

@@ -17,6 +17,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+/**
+ * Formatuje czas w sekundach do formatu "Xh Ymin Zsek" lub "Ymin Zsek" lub "Zsek"
+ */
+fun formatTimeRemaining(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val secs = seconds % 60
+    
+    return when {
+        hours > 0 -> "${hours}h ${minutes}min ${secs}sek"
+        minutes > 0 -> "${minutes}min ${secs}sek"
+        else -> "${secs}sek"
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @ExperimentalMaterial3Api
 @Composable
@@ -355,7 +370,7 @@ fun OfflineRecordingConfigScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            stringResource(R.string.message_time_remaining, timeRemaining),
+                            formatTimeRemaining(timeRemaining),
                             style = MaterialTheme.typography.headlineLarge,
                             color = Color(0xFF10B981),
                             fontWeight = FontWeight.Bold
@@ -378,11 +393,8 @@ fun OfflineRecordingConfigScreen(
                 }
             }
             
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            // Action Button - only show when NOT recording
+            if (!isRecording) {
                 Button(
                     onClick = {
                         val rc = buildString {
@@ -395,18 +407,10 @@ fun OfflineRecordingConfigScreen(
                         val edge = if (triggerEdge == "Rising") 0 else 1
                         onStartRecording(rc, triggerChannel, triggerThreshold, edge, nrOfSamples, timeBaseFactor)
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                 ) {
                     Text(stringResource(R.string.button_start_recording))
-                }
-                
-                Button(
-                    onClick = onStopRecording,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
-                ) {
-                    Text(stringResource(R.string.button_stop_recording))
                 }
             }
             

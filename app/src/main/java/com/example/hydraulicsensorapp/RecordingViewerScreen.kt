@@ -2,6 +2,7 @@ package com.example.hydraulicsensorapp
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -143,6 +146,9 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    var xRange by remember { mutableStateOf(0f..(data.samples.size.toFloat())) }
+                    var yRange by remember { mutableStateOf((channel.min ?: 0f)..(channel.max ?: 100f)) }
+                    
                     Text(
                         "P${channel.index} (${channel.unit})",
                         style = MaterialTheme.typography.titleSmall,
@@ -160,17 +166,82 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
                         style = MaterialTheme.typography.bodySmall
                     )
                     
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // X-axis range control
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Oś X: ${xRange.start.toInt()} - ${xRange.endInclusive.toInt()}",
+                            color = Color(0xFF94A3B8),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(
+                            onClick = { 
+                                xRange = 0f..(data.samples.size.toFloat())
+                                yRange = (channel.min ?: 0f)..(channel.max ?: 100f)
+                            }
+                        ) {
+                            Text("Reset", color = Color(0xFF3B82F6), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    
+                    RangeSlider(
+                        value = xRange,
+                        onValueChange = { xRange = it },
+                        valueRange = 0f..(data.samples.size.toFloat()),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF3B82F6),
+                            activeTrackColor = Color(0xFF3B82F6),
+                            inactiveTrackColor = Color(0xFF334155)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // Draw chart
+                    // Y-axis range control
+                    Text(
+                        "Oś Y: %.2f - %.2f %s".format(yRange.start, yRange.endInclusive, channel.unit),
+                        color = Color(0xFF94A3B8),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    
+                    RangeSlider(
+                        value = yRange,
+                        onValueChange = { yRange = it },
+                        valueRange = (channel.min ?: 0f)..(channel.max ?: 100f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF10B981),
+                            activeTrackColor = Color(0xFF10B981),
+                            inactiveTrackColor = Color(0xFF334155)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Filter data to selected X range
+                    val allData = data.samples.mapNotNull { it.values[channel.index] }
+                    val startIdx = xRange.start.toInt().coerceIn(0, allData.size)
+                    val endIdx = xRange.endInclusive.toInt().coerceIn(0, allData.size)
+                    val filteredData = if (startIdx < endIdx) allData.subList(startIdx, endIdx) else allData
+                    
+                    // Draw chart with custom Y range
                     LineChart(
-                        data = data.samples.mapNotNull { it.values[channel.index] },
+                        data = filteredData,
                         color = getChannelColor(channel.index),
-                        minValue = channel.min ?: 0f,
-                        maxValue = channel.max ?: 100f,
+                        minValue = yRange.start,
+                        maxValue = yRange.endInclusive,
+                        unit = channel.unit,
+                        sampleCount = filteredData.size,
+                        startSampleOffset = startIdx,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(150.dp)
+                            .height(200.dp)
                     )
                 }
             }
@@ -186,17 +257,45 @@ fun LineChart(
     color: Color,
     minValue: Float,
     maxValue: Float,
+    unit: String,
+    sampleCount: Int,
+    startSampleOffset: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier.background(Color(0xFF0F172A))) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var selectedX by remember { mutableFloatStateOf(-1f) }
+    var selectedValue by remember { mutableFloatStateOf(0f) }
+    var selectedSample by remember { mutableIntStateOf(0) }
+    
+    Canvas(modifier = modifier
+        .background(Color(0xFF0F172A))
+        .pointerInput(Unit) {
+            detectTapGestures { offset ->
+                selectedX = offset.x
+                // Oblicz który sample został kliknięty
+                val leftPadding = 170f
+                val padding = 60f
+                val chartWidth = size.width - leftPadding - padding
+                if (offset.x >= leftPadding && offset.x <= size.width - padding) {
+                    val relativeX = offset.x - leftPadding
+                    val sampleIndex = ((relativeX / chartWidth) * (data.size - 1)).toInt()
+                        .coerceIn(0, data.size - 1)
+                    selectedSample = sampleIndex + startSampleOffset
+                    selectedValue = data[sampleIndex]
+                }
+            }
+        }
+    ) {
         if (data.isEmpty()) return@Canvas
         
         val width = size.width
         val height = size.height
-        val padding = 40f
+        val padding = 60f
+        val leftPadding = 170f
+        val bottomPadding = 70f
         
-        val chartWidth = width - padding * 2
-        val chartHeight = height - padding * 2
+        val chartWidth = width - leftPadding - padding
+        val chartHeight = height - padding - bottomPadding
         
         // Calculate range with some padding
         val range = maxValue - minValue
@@ -210,34 +309,99 @@ fun LineChart(
             val y = padding + (chartHeight / 4) * i
             drawLine(
                 color = gridColor,
-                start = Offset(padding, y),
+                start = Offset(leftPadding, y),
                 end = Offset(width - padding, y),
                 strokeWidth = 1f
             )
         }
         
+        // Draw Y-axis labels
+        val paintYLabels = android.graphics.Paint().apply {
+            textSize = 32f
+            setColor(android.graphics.Color.parseColor("#94A3B8"))
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+        for (i in 0..4) {
+            val y = padding + (chartHeight / 4) * i
+            val value = paddedMax - (paddedMax - paddedMin) * (i / 4f)
+            drawContext.canvas.nativeCanvas.drawText(
+                "%.2f".format(value),
+                leftPadding - 20f,
+                y + 10f,
+                paintYLabels
+            )
+        }
+        
+        // Draw Y-axis label (unit)
+        val paintYAxisLabel = android.graphics.Paint().apply {
+            textSize = 34f
+            setColor(android.graphics.Color.parseColor("#E2E8F0"))
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+        }
+        drawContext.canvas.nativeCanvas.save()
+        drawContext.canvas.nativeCanvas.rotate(-90f, 18f, height / 2)
+        drawContext.canvas.nativeCanvas.drawText(
+            unit,
+            18f,
+            height / 2 + 12f,
+            paintYAxisLabel
+        )
+        drawContext.canvas.nativeCanvas.restore()
+        
         // Draw axes
         drawLine(
             color = androidx.compose.ui.graphics.Color(0xFF64748B),
-            start = Offset(padding, padding),
-            end = Offset(padding, height - padding),
+            start = Offset(leftPadding, padding),
+            end = Offset(leftPadding, height - bottomPadding),
             strokeWidth = 2f
         )
         drawLine(
             color = androidx.compose.ui.graphics.Color(0xFF64748B),
-            start = Offset(padding, height - padding),
-            end = Offset(width - padding, height - padding),
+            start = Offset(leftPadding, height - bottomPadding),
+            end = Offset(width - padding, height - bottomPadding),
             strokeWidth = 2f
         )
+        
+        // Draw X-axis label (Sample number)
+        val paintXAxisLabel = android.graphics.Paint().apply {
+            textSize = 38f
+            setColor(android.graphics.Color.parseColor("#E2E8F0"))
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+        }
+        drawContext.canvas.nativeCanvas.drawText(
+            context.getString(R.string.label_chart_x_axis),
+            (leftPadding + width - padding) / 2,
+            height - 5f,
+            paintXAxisLabel
+        )
+        
+        // Draw X-axis tick labels
+        val paintXTicks = android.graphics.Paint().apply {
+            textSize = 30f
+            setColor(android.graphics.Color.parseColor("#94A3B8"))
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+        for (i in 0..4) {
+            val x = leftPadding + (chartWidth / 4) * i
+            val sampleNum = ((sampleCount / 4f * i).toInt() + startSampleOffset)
+            drawContext.canvas.nativeCanvas.drawText(
+                sampleNum.toString(),
+                x,
+                height - bottomPadding + 35f,
+                paintXTicks
+            )
+        }
         
         // Draw data line
         if (data.size > 1) {
             val path = Path()
             
             data.forEachIndexed { index, value ->
-                val x = padding + (chartWidth / (data.size - 1)) * index
+                val x = leftPadding + (chartWidth / (data.size - 1)) * index
                 val normalizedValue = (value - paddedMin) / paddedRange
-                val y = height - padding - (normalizedValue * chartHeight)
+                val y = height - bottomPadding - (normalizedValue * chartHeight)
                 
                 if (index == 0) {
                     path.moveTo(x, y)
@@ -254,9 +418,9 @@ fun LineChart(
             
             // Draw points
             data.forEachIndexed { index, value ->
-                val x = padding + (chartWidth / (data.size - 1)) * index
+                val x = leftPadding + (chartWidth / (data.size - 1)) * index
                 val normalizedValue = (value - paddedMin) / paddedRange
-                val y = height - padding - (normalizedValue * chartHeight)
+                val y = height - bottomPadding - (normalizedValue * chartHeight)
                 
                 drawCircle(
                     color = color,
@@ -264,6 +428,78 @@ fun LineChart(
                     center = Offset(x, y)
                 )
             }
+        }
+        
+        // Draw selection indicator (vertical line + value label)
+        if (selectedX >= leftPadding && selectedX <= width - padding) {
+            // Vertical line
+            drawLine(
+                color = Color(0xFFFBBF24),
+                start = Offset(selectedX, padding),
+                end = Offset(selectedX, height - bottomPadding),
+                strokeWidth = 3f
+            )
+            
+            // Value label with background
+            val labelPaint = android.graphics.Paint().apply {
+                textSize = 40f
+                setColor(android.graphics.Color.parseColor("#FFFFFF"))
+                textAlign = android.graphics.Paint.Align.CENTER
+                isFakeBoldText = true
+            }
+            
+            val labelText = "%.2f %s".format(selectedValue, unit)
+            val labelWidth = labelPaint.measureText(labelText)
+            val labelHeight = 50f
+            val labelPadding = 10f
+            
+            // Position label above the line
+            var labelX = selectedX
+            var labelY = padding - 20f
+            
+            // Keep label within bounds
+            if (labelX - labelWidth / 2 - labelPadding < 0) {
+                labelX = labelWidth / 2 + labelPadding
+            }
+            if (labelX + labelWidth / 2 + labelPadding > width) {
+                labelX = width - labelWidth / 2 - labelPadding
+            }
+            
+            // Draw background rectangle
+            drawRect(
+                color = Color(0xFF1E293B),
+                topLeft = Offset(labelX - labelWidth / 2 - labelPadding, labelY - labelHeight),
+                size = androidx.compose.ui.geometry.Size(labelWidth + labelPadding * 2, labelHeight)
+            )
+            
+            // Draw border
+            drawRect(
+                color = Color(0xFFFBBF24),
+                topLeft = Offset(labelX - labelWidth / 2 - labelPadding, labelY - labelHeight),
+                size = androidx.compose.ui.geometry.Size(labelWidth + labelPadding * 2, labelHeight),
+                style = Stroke(width = 2f)
+            )
+            
+            // Draw text
+            drawContext.canvas.nativeCanvas.drawText(
+                labelText,
+                labelX,
+                labelY - labelHeight / 2 + 14f,
+                labelPaint
+            )
+            
+            // Draw sample number below
+            val samplePaint = android.graphics.Paint().apply {
+                textSize = 32f
+                setColor(android.graphics.Color.parseColor("#94A3B8"))
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            drawContext.canvas.nativeCanvas.drawText(
+                "Sample: $selectedSample",
+                labelX,
+                height - bottomPadding + 60f,
+                samplePaint
+            )
         }
     }
 }

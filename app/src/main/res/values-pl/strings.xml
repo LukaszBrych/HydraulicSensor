@@ -133,6 +133,7 @@
     <string name="label_duration_seconds">Czas trwania: %ds</string>
     <string name="button_start_recording">Rozpocznij Nagrywanie</string>
     <string name="button_stop_recording">Zatrzymaj Nagrywanie</string>
+    <string name="button_abort_recording">⚠️ PRZERWIJ NAGRYWANIE</string>
     <string name="info_trigger_wait_message">Po uruchomieniu SensorBox czeka na warunek wyzwalający. Nagrywanie rozpoczyna się automatycznie po przekroczeniu progu.</string>
     
     <!-- Download Offline Data Screen -->
@@ -178,7 +179,7 @@
     <string name="message_calibration_saved">Kalibracja została zapisana</string>
     <string name="message_recording_in_progress">Nagrywanie w toku</string>
     <string name="message_time_remaining">Pozostało: %1$d sekund</string>
-    <string name="warning_incomplete_data">Wcześniejsze zatrzymanie może skutkować niekompletnymi danymi</string>
+    <string name="warning_incomplete_data">Wcześniejsze zatrzymanie skutkuje utratą danych</string>
     
     <!-- Range Settings Dialog -->
     <string name="label_unit">Jednostka</string>
@@ -189,4 +190,15 @@
     <string name="label_range_values">Wartości zakresów</string>
     <string name="info_active_range">Aktywny zakres: R%1$d</string>
     <string name="info_range_value">Wartość: %1$s %2$s (%3$s)</string>
+    
+    <!-- Advanced Chart View -->
+    <string name="label_chart_view_mode">Tryb Widoku</string>
+    <string name="label_combined_chart">Wspólny</string>
+    <string name="label_individual_charts">Indywidualne</string>
+    <string name="label_visible_channels">Widoczne Kanały</string>
+    <string name="label_scale_mode">Auto Skala</string>
+    <string name="label_auto_scale_enabled">Automatyczne skalowanie na podstawie danych</string>
+    <string name="label_no_channels_selected">Nie wybrano kanałów</string>
+    <string name="label_combined_chart_title">Wszystkie Kanały</string>
+    <string name="label_chart_x_axis">Próbka</string>
 </resources>

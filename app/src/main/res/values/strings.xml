@@ -127,6 +127,7 @@
     <string name="label_duration_seconds">Duration: %ds</string>
     <string name="button_start_recording">Start Recording</string>
     <string name="button_stop_recording">Stop Recording</string>
+    <string name="button_abort_recording">⚠️ ABORT RECORDING</string>
     <string name="info_trigger_wait_message">After starting, SensorBox will wait for trigger condition. Recording starts automatically when trigger threshold is crossed.</string>
     
     <!-- Recording Viewer Screen -->
@@ -180,7 +181,7 @@
     <string name="message_calibration_saved">Calibration saved</string>
     <string name="message_recording_in_progress">Recording in progress</string>
     <string name="message_time_remaining">Time remaining: %1$d seconds</string>
-    <string name="warning_incomplete_data">Stopping early may result in incomplete data</string>
+    <string name="warning_incomplete_data">Stopping early results in data loss</string>
     
     <!-- Range Settings Dialog -->
     <string name="label_unit">Unit</string>
@@ -191,4 +192,15 @@
     <string name="label_range_values">Range Values</string>
     <string name="info_active_range">Active Range: R%1$d</string>
     <string name="info_range_value">Value: %1$s %2$s (%3$s)</string>
+    
+    <!-- Advanced Chart View -->
+    <string name="label_chart_view_mode">View Mode</string>
+    <string name="label_combined_chart">Combined</string>
+    <string name="label_individual_charts">Individual</string>
+    <string name="label_visible_channels">Visible Channels</string>
+    <string name="label_scale_mode">Auto Scale</string>
+    <string name="label_auto_scale_enabled">Automatic scaling based on data</string>
+    <string name="label_no_channels_selected">No channels selected</string>
+    <string name="label_combined_chart_title">All Channels</string>
+    <string name="label_chart_x_axis">Sample</string>
 </resources>

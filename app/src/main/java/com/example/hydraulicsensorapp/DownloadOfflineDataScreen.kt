@@ -20,6 +20,21 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
+ * Formatuje czas w sekundach do formatu "Xh Ymin Zsek" lub "Ymin Zsek" lub "Zsek"
+ */
+fun formatTimeRemainingDownload(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val secs = seconds % 60
+    
+    return when {
+        hours > 0 -> "${hours}h ${minutes}min ${secs}sek"
+        minutes > 0 -> "${minutes}min ${secs}sek"
+        else -> "${secs}sek"
+    }
+}
+
+/**
  * Ekran pobierania danych Offline Recording z SensorBox
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,7 +106,7 @@ fun DownloadOfflineDataScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            stringResource(R.string.message_time_remaining, timeRemaining),
+                            formatTimeRemainingDownload(timeRemaining),
                             style = MaterialTheme.typography.headlineLarge,
                             color = androidx.compose.ui.graphics.Color(0xFF10B981),
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
@@ -237,13 +252,13 @@ fun DownloadOfflineDataScreen(
                             .format(Date(timestamp * 1000))
                         
                         // Calculate samples and duration
-                        // du = duration units (każda jednostka = 500 próbek)
+                        // du = liczba tysięcy próbek (du × 1000 = liczba próbek)
                         // Jeśli mamy już pobrane dane, użyj faktycznej liczby
                         val du = headerData!!["du"]?.toIntOrNull() ?: 0
                         val samples = if (downloadedData.isNotEmpty()) {
-                            downloadedData.values.firstOrNull()?.size ?: (du * 500)
+                            downloadedData.values.firstOrNull()?.size ?: (du * 1000)
                         } else {
-                            du * 500
+                            du * 1000
                         }
                         val timeBaseMs = headerData!!["tb"]?.toIntOrNull() ?: 1
                         val durationSec = (samples * timeBaseMs) / 1000.0

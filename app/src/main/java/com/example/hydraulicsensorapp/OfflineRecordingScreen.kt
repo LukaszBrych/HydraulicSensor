@@ -73,6 +73,54 @@ fun OfflineRecordingScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var previousConnectionStatus by remember { mutableStateOf(connectionStatus) }
     
+    // MIN/MAX tracking dla każdego kanału
+    val minValues = remember { mutableStateListOf(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE) }
+    val maxValues = remember { mutableStateListOf(Double.MIN_VALUE, Double.MIN_VALUE, Double.MIN_VALUE, Double.MIN_VALUE, Double.MIN_VALUE, Double.MIN_VALUE) }
+    
+    // Reset MIN/MAX gdy zaczyna się pomiar
+    LaunchedEffect(isReadingLive) {
+        if (isReadingLive) {
+            Log.d("SensorBox", "🔄 Resetowanie MIN/MAX wartości")
+            // Resetuj wartości MIN/MAX
+            for (i in 0..5) {
+                minValues[i] = Double.MAX_VALUE
+                maxValues[i] = Double.MIN_VALUE
+            }
+        }
+    }
+    
+    // Aktualizuj MIN/MAX podczas pomiaru - co 250ms, ale zacznij po 1 sekundzie
+    LaunchedEffect(isReadingLive) {
+        if (isReadingLive) {
+            // Czekaj 1 sekundę przed rozpoczęciem śledzenia MIN/MAX
+            kotlinx.coroutines.delay(1000)
+            Log.d("SensorBox", "✅ Rozpoczynam śledzenie MIN/MAX po 1 sekundzie")
+        }
+        while (isReadingLive) {
+            channelValues.forEachIndexed { index, value ->
+                val display = value.substringAfter(":").trim()
+                if (display != "---" && !display.contains("brak czujnika")) {
+                    val numValue = display.toDoubleOrNull()
+                    if (numValue != null) {
+                        var updated = false
+                        if (minValues[index] == Double.MAX_VALUE || numValue < minValues[index]) {
+                            minValues[index] = numValue
+                            updated = true
+                        }
+                        if (maxValues[index] == Double.MIN_VALUE || numValue > maxValues[index]) {
+                            maxValues[index] = numValue
+                            updated = true
+                        }
+                        if (updated) {
+                            Log.d("SensorBox", "P${index+1}: wartość=$numValue, MIN=${minValues[index]}, MAX=${maxValues[index]}")
+                        }
+                    }
+                }
+            }
+            kotlinx.coroutines.delay(250) // Sprawdzaj co 250ms
+        }
+    }
+    
     // Monitor connection status and start countdown when connected
     LaunchedEffect(connectionStatus) {
         if (connectionStatus == "Connected to SensorBox" && previousConnectionStatus != "Connected to SensorBox") {
@@ -214,6 +262,8 @@ fun OfflineRecordingScreen(
                         onDialogClose = { startCountdown = 3 },
                         turbineNames = turbineNames,
                         startCountdown = startCountdown,
+                        minValues = minValues,
+                        maxValues = maxValues,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -432,6 +482,8 @@ fun SensorGrid(
     onDialogClose: () -> Unit,
     turbineNames: Map<String, String> = emptyMap(),
     startCountdown: Int = 0,
+    minValues: List<Double> = emptyList(),
+    maxValues: List<Double> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -457,7 +509,9 @@ fun SensorGrid(
                 onSendRangeSettings = onSendRangeSettings,
                 onDialogClose = onDialogClose,
                 turbineNames = turbineNames,
-                startCountdown = startCountdown
+                startCountdown = startCountdown,
+                minValue = minValues.getOrNull(index),
+                maxValue = maxValues.getOrNull(index)
             )
         }
     }
@@ -479,7 +533,9 @@ fun SensorTile(
     onSendRangeSettings: (Int, Int, List<String>, String) -> Unit,
     onDialogClose: () -> Unit,
     turbineNames: Map<String, String> = emptyMap(),
-    startCountdown: Int = 0
+    startCountdown: Int = 0,
+    minValue: Double? = null,
+    maxValue: Double? = null
 ) {
     var showRangeDialog by remember { mutableStateOf(false) }
     
@@ -553,7 +609,16 @@ fun SensorTile(
             val rangeValue = parts[0].toFloatOrNull() ?: 0f
             val rangeUnit = parts[1]
             
-            if (rangeUnit != displayUnit && originalUnit != displayUnit) {
+            // Dla P5 (R1-R5) zawsze pokaż nazwę turbiny, dla P6 tylko R1 i R2
+            val rangeIndex = currentRanges.indexOf(range).coerceAtLeast(0)
+            val shouldShowTurbineName = (id == "P5") || (id == "P6" && rangeIndex < 2)
+            
+            if (shouldShowTurbineName) {
+                val turbineKey = "${id}R${rangeIndex + 1}"  // P5R1, P5R2, ..., P6R1, P6R2
+                val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R${rangeIndex + 1}"
+                // Tylko nazwa turbiny, bez wartości zakresu i jednostki
+                turbineName
+            } else if (rangeUnit != displayUnit && originalUnit != displayUnit) {
                 // Konwertuj wartość zakresu
                 val convertedRangeValue = convertValue(rangeValue, rangeUnit, displayUnit)
                 "${convertedRangeValue.toInt()} ${displayUnit.uppercase()}"
@@ -561,10 +626,28 @@ fun SensorTile(
                 "${rangeValue.toInt()} ${displayUnit.uppercase()}"
             }
         } else {
-            displayUnit.uppercase()
+            val rangeIndex = currentRanges.indexOf(range).coerceAtLeast(0)
+            val shouldShowTurbineName = (id == "P5") || (id == "P6" && rangeIndex < 2)
+            
+            // Dla P5 (wszystkie) i P6 (tylko R1-R2) pokaż nazwę turbiny
+            if (shouldShowTurbineName) {
+                val turbineKey = "${id}R${rangeIndex + 1}"
+                val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R${rangeIndex + 1}"
+                turbineName
+            } else {
+                displayUnit.uppercase()
+            }
         }
     } else {
-        displayUnit.uppercase()
+        // Dla P5 i P6 (R1) pokaż nazwę turbiny
+        val shouldShowTurbineName = id == "P5" || id == "P6"
+        if (shouldShowTurbineName) {
+            val turbineKey = "${id}R1"  // Domyślnie R1 jeśli brak zakresu
+            val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R1"
+            turbineName
+        } else {
+            displayUnit.uppercase()
+        }
     }
     
     // Konwertuj wartość z originalUnit na displayUnit software'owo
@@ -652,6 +735,47 @@ fun SensorTile(
                 Text(formatted, style = MaterialTheme.typography.displayMedium, color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(8.dp))
                 Text(displayedRange, style = MaterialTheme.typography.titleMedium, color = Color(0xFF94A3B8))
+                
+                // Wyświetl MIN/MAX gdy pomiar aktywny
+                val showMinMax = isReadingLive && 
+                                 minValue != null && maxValue != null && 
+                                 minValue != Double.MAX_VALUE && 
+                                 maxValue != Double.MIN_VALUE &&
+                                 formatted != "---" && 
+                                 !formatted.contains("brak czujnika")
+                
+                if (showMinMax) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "MIN",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF60A5FA)
+                            )
+                            Text(
+                                val2decimal(minValue, displayUnit),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF60A5FA)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "MAX",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFF87171)
+                            )
+                            Text(
+                                val2decimal(maxValue, displayUnit),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFF87171)
+                            )
+                        }
+                    }
+                }
             }
 
             Text(
