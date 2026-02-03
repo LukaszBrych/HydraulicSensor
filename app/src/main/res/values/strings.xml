@@ -178,6 +178,9 @@
     
     <!-- Messages -->
     <string name="message_calibration_saved">Calibration saved</string>
+    <string name="message_recording_in_progress">Recording in progress</string>
+    <string name="message_time_remaining">Time remaining: %1$d seconds</string>
+    <string name="warning_incomplete_data">Stopping early may result in incomplete data</string>
     
     <!-- Range Settings Dialog -->
     <string name="label_unit">Unit</string>

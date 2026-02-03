@@ -89,6 +89,11 @@ class MainActivity : ComponentActivity() {
     private val connectionStatus = mutableStateOf("Disconnected")
     private val isReadingLive = mutableStateOf(false)
     
+    // Offline Recording Timer
+    private val isOfflineRecording = mutableStateOf(false)
+    private val offlineRecordingTimeRemaining = mutableIntStateOf(0) // seconds remaining
+    private val offlineRecordingTotalTime = mutableIntStateOf(0) // total duration in seconds
+    
     // CSV Logger dla live reading
     private var csvLogger: CSVLogger? = null
     
@@ -202,6 +207,12 @@ class MainActivity : ComponentActivity() {
 
             characteristic.value = cmd.toByteArray()
             characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            
+            // Log MTU przy każdym write
+            if (cmd.length > 20) {
+                Log.d("SensorBox", "📡 Wysyłam ${cmd.length} bajtów (MTU może ograniczyć do ~20)")
+            }
+            
             val ok = gatt.writeCharacteristic(characteristic)
             if (!ok) {
                 handler.postDelayed({ processNextWrite(gatt) }, 100)
@@ -386,7 +397,11 @@ class MainActivity : ComponentActivity() {
             // Detekcja 'r' jako potwierdzenie startu recording (jak w Python)
             if (isWaitingForRecordingStart && text.contains('r')) {
                 isWaitingForRecordingStart = false
-                Log.d("SensorBox", "✅ Otrzymano 'r' - Recording rozpoczęty!")
+                isOfflineRecording.value = true
+                Log.d("SensorBox", "✅ Otrzymano 'r' - Recording rozpoczęty! Timer: ${offlineRecordingTimeRemaining.intValue}s")
+                
+                // Start countdown timer
+                startOfflineRecordingTimer()
                 return
             }
 
@@ -672,7 +687,10 @@ class MainActivity : ComponentActivity() {
                             onStartRecording = { rc, tc, th, edge, samples, tbFactor ->
                                 startOfflineRecording(rc, tc, th, edge, samples, tbFactor)
                             },
-                            onStopRecording = { stopOfflineRecording() }
+                            onStopRecording = { stopOfflineRecording() },
+                            isRecording = isOfflineRecording.value,
+                            timeRemaining = offlineRecordingTimeRemaining.intValue,
+                            totalTime = offlineRecordingTotalTime.intValue
                         )
                         
                         "downloadData" -> DownloadOfflineDataScreen(
@@ -685,6 +703,9 @@ class MainActivity : ComponentActivity() {
                             onSaveCSV = { header, data, filename, callback ->
                                 saveToCSV(header, data, filename, callback)
                             },
+                            isRecording = isOfflineRecording.value,
+                            timeRemaining = offlineRecordingTimeRemaining.intValue,
+                            totalTime = offlineRecordingTotalTime.intValue,
                             onStopRecording = { stopOfflineRecording() },
                             onClearMemory = { callback -> clearOfflineMemory(callback) }
                         )
@@ -1157,26 +1178,36 @@ class MainActivity : ComponentActivity() {
             handler.postDelayed({
                 Log.d("SensorBox", "🧹 Delay zakończony, wysyłam 'sr'...")
                 
-                // Parametr du (duration units) = liczba próbek / 500
-                // SensorBox używa du do określenia ile próbek zapisać
-                val durationUnits = nrOfSamples / 500
+                // Parametr du = liczba tysięcy próbek (nie ma związku z czasem!)
+                // SensorBox: liczba_próbek = du × 1000
+                // Walidacja: próbki muszą być podzielne przez 1000
+                val du = nrOfSamples / 1000
+                val expectedDuration = (nrOfSamples * timeBaseFactor) / 1000  // Czas w sekundach (dla timera)
                 
                 // Timestamp (epoch time)
                 val timestamp = System.currentTimeMillis() / 1000
                 
                 // Buduj komendę sr
                 // Format: sr timestamp channels trigger_ch trigger_th edge du tb
-                val cmd = "sr $timestamp $recordingChannels $triggerChannel $triggerThreshold $triggerEdge $durationUnits $timeBaseFactor\n"
+                val cmd = "sr $timestamp $recordingChannels $triggerChannel $triggerThreshold $triggerEdge $du $timeBaseFactor\n"
                 
-                // Oblicz faktyczny czas trwania dla info
-                val durationSeconds = (nrOfSamples * timeBaseFactor) / 1000.0
+                // Sprawdź długość komendy
+                val cmdLength = cmd.length
+                Log.d("SensorBox", "📏 Command length: $cmdLength bytes")
+                if (cmdLength > 20) {
+                    Log.w("SensorBox", "⚠️ UWAGA: Komenda dłuższa niż standardowe MTU (20 bajtów)!")
+                }
                 
                 Log.d("SensorBox", "🔴 Rozpoczynam Offline Recording:")
                 Log.d("SensorBox", "  Kanały: $recordingChannels")
                 Log.d("SensorBox", "  Trigger: P$triggerChannel >= $triggerThreshold% (edge=$triggerEdge)")
-                Log.d("SensorBox", "  Próbek: $nrOfSamples (du=$durationUnits), Time base: ${timeBaseFactor}ms")
-                Log.d("SensorBox", "  Duration: ${durationSeconds}s")
+                Log.d("SensorBox", "  Próbek: $nrOfSamples, Time base: ${timeBaseFactor}ms")
+                Log.d("SensorBox", "  Duration: ${expectedDuration}s (du=$du - liczba tysięcy próbek)")
                 Log.d("SensorBox", "  Komenda: $cmd")
+                
+                // Ustaw timer offline recording
+                offlineRecordingTotalTime.intValue = expectedDuration
+                offlineRecordingTimeRemaining.intValue = expectedDuration
                 
                 // Ustaw flagę przed wysłaniem - czekamy na 'r'
                 isWaitingForRecordingStart = true
@@ -1202,6 +1233,27 @@ class MainActivity : ComponentActivity() {
             enqueueWrite(g, "q\n")
             Log.d("SensorBox", "🛑 Zatrzymano Offline Recording")
         }
+        isOfflineRecording.value = false
+        offlineRecordingTimeRemaining.intValue = 0
+    }
+    
+    /**
+     * Timer dla offline recording - odlicza co sekundę
+     */
+    private fun startOfflineRecordingTimer() {
+        handler.post(object : Runnable {
+            override fun run() {
+                if (isOfflineRecording.value && offlineRecordingTimeRemaining.intValue > 0) {
+                    offlineRecordingTimeRemaining.intValue -= 1
+                    Log.d("SensorBox", "⏱️ Recording timer: ${offlineRecordingTimeRemaining.intValue}s remaining")
+                    handler.postDelayed(this, 1000) // Co sekundę
+                } else if (offlineRecordingTimeRemaining.intValue <= 0) {
+                    // Timer zakończony - nagrywanie ukończone
+                    isOfflineRecording.value = false
+                    Log.d("SensorBox", "✅ Recording completed - timer finished")
+                }
+            }
+        })
     }
     
     /**

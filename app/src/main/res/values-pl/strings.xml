@@ -176,6 +176,9 @@
     
     <!-- Messages -->
     <string name="message_calibration_saved">Kalibracja została zapisana</string>
+    <string name="message_recording_in_progress">Nagrywanie w toku</string>
+    <string name="message_time_remaining">Pozostało: %1$d sekund</string>
+    <string name="warning_incomplete_data">Wcześniejsze zatrzymanie może skutkować niekompletnymi danymi</string>
     
     <!-- Range Settings Dialog -->
     <string name="label_unit">Jednostka</string>

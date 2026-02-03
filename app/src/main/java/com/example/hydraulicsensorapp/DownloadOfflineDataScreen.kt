@@ -31,7 +31,10 @@ fun DownloadOfflineDataScreen(
     onDownloadChannel: (channel: Int, endValue: Float, callback: (List<Float>?) -> Unit) -> Unit,
     onSaveCSV: (header: Map<String, String>, data: Map<Int, List<Float>>, filename: String, callback: (Boolean, String?) -> Unit) -> Unit,
     onStopRecording: () -> Unit,
-    onClearMemory: (callback: (Boolean) -> Unit) -> Unit
+    onClearMemory: (callback: (Boolean) -> Unit) -> Unit,
+    isRecording: Boolean = false,
+    timeRemaining: Int = 0,
+    totalTime: Int = 0
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -70,6 +73,47 @@ fun DownloadOfflineDataScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Recording Timer (when recording is in progress)
+            if (isRecording && timeRemaining > 0) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF1E293B)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            stringResource(R.string.message_recording_in_progress),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = androidx.compose.ui.graphics.Color(0xFF3B82F6),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.message_time_remaining, timeRemaining),
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = androidx.compose.ui.graphics.Color(0xFF10B981),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = if (totalTime > 0) (totalTime - timeRemaining).toFloat() / totalTime else 0f,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = androidx.compose.ui.graphics.Color(0xFF10B981),
+                            trackColor = androidx.compose.ui.graphics.Color(0xFF0F172A)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.warning_incomplete_data),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = androidx.compose.ui.graphics.Color(0xFFFBBF24),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            }
+            
             // Status Card
             Card(
                 modifier = Modifier.fillMaxWidth(),

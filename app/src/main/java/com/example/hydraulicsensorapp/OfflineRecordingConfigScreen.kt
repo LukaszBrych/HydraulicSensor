@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -29,7 +30,10 @@ fun OfflineRecordingConfigScreen(
         nrOfSamples: Int,              // liczba próbek
         timeBaseFactor: Int            // 1=1ms, 10=10ms, 100=100ms, 1000=1s, 10000=10s
     ) -> Unit,
-    onStopRecording: () -> Unit
+    onStopRecording: () -> Unit,
+    isRecording: Boolean = false,
+    timeRemaining: Int = 0,
+    totalTime: Int = 0
 ) {
     // Trigger settings
     var triggerChannel by remember { mutableIntStateOf(1) }
@@ -330,6 +334,47 @@ fun OfflineRecordingConfigScreen(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+            
+            // Recording Timer (when recording is in progress)
+            if (isRecording && timeRemaining > 0) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            stringResource(R.string.message_recording_in_progress),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF3B82F6),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.message_time_remaining, timeRemaining),
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Color(0xFF10B981),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = if (totalTime > 0) (totalTime - timeRemaining).toFloat() / totalTime else 0f,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF10B981),
+                            trackColor = Color(0xFF0F172A)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.warning_incomplete_data),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFFBBF24),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
             
