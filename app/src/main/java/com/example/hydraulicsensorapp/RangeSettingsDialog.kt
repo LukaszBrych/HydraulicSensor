@@ -359,57 +359,7 @@ fun RangeSettingsDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Active Range Selector
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                stringResource(R.string.label_active_range),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF94A3B8),
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                repeat(5) { index ->
-                                    val isSpecial = (sensorId == "P3" && index == 0) || (sensorId == "P6" && index == 2)
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        RadioButton(
-                                            selected = activeRange == index,
-                                            onClick = { activeRange = index },
-                                            colors = RadioButtonDefaults.colors(
-                                                selectedColor = MaterialTheme.colorScheme.primary,
-                                                unselectedColor = Color(0xFF64748B)
-                                            )
-                                        )
-                                        Text(
-                                            "R${index + 1}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (activeRange == index) Color.White else Color(0xFF64748B),
-                                            fontWeight = if (activeRange == index) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                        Text(
-                                            sensorConfig.labels[index],
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFF475569)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Range TextFields
+                    // Range TextFields with integrated active range selection
                     Text(
                         stringResource(R.string.label_range_values),
                         style = MaterialTheme.typography.labelMedium,
@@ -441,24 +391,25 @@ fun RangeSettingsDialog(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                // RadioButton for active range selection
+                                RadioButton(
+                                    selected = activeRange == index,
+                                    onClick = { activeRange = index },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = Color(0xFF64748B)
+                                    ),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                
                                 // Label
-                                Column(modifier = Modifier.width(100.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            "R${index + 1}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        if (isActive) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                "●",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.titleSmall
-                                            )
-                                        }
-                                    }
+                                Column(modifier = Modifier.width(80.dp)) {
+                                    Text(
+                                        "R${index + 1}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                     Text(
                                         sensorConfig.labels[index],
                                         style = MaterialTheme.typography.bodySmall,

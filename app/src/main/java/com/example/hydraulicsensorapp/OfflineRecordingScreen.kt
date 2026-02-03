@@ -71,6 +71,15 @@ fun OfflineRecordingScreen(
     val customInputs = remember { mutableStateListOf("", "", "", "", "", "") }
     var startCountdown by remember { mutableIntStateOf(0) }  // 0 = brak blokady, 3,2,1 = odliczanie
     val snackbarHostState = remember { SnackbarHostState() }
+    var previousConnectionStatus by remember { mutableStateOf(connectionStatus) }
+    
+    // Monitor connection status and start countdown when connected
+    LaunchedEffect(connectionStatus) {
+        if (connectionStatus == "Connected to SensorBox" && previousConnectionStatus != "Connected to SensorBox") {
+            startCountdown = 3  // Start countdown when connected
+        }
+        previousConnectionStatus = connectionStatus
+    }
     
     // Show message in Snackbar when provided
     LaunchedEffect(showMessage) {
@@ -659,11 +668,11 @@ fun SensorTile(
 fun val2decimal(value: Double, unit: String): String {
     return when(unit){
         "U/m","rpm","psi" -> value.toInt().toString()
-        "C","F" -> String.format("%.1f", value)
+        "C","F" -> String.format("%.3f", value)
         else -> when {
-            value<10 -> String.format("%.2f", value)
-            value<1000 -> String.format("%.1f", value)
-            else -> value.toInt().toString()
+            value<10 -> String.format("%.3f", value)
+            value<1000 -> String.format("%.3f", value)
+            else -> String.format("%.3f", value)
         }
     }
 }

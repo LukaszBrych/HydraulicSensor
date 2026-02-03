@@ -1097,11 +1097,11 @@ class MainActivity : ComponentActivity() {
     fun val2decimal(value: Double, unit:String): String {
         return when(unit){
             "U/m","rpm","psi" -> value.toInt().toString()
-            "C","F" -> String.format("%.1f", value)
+            "C","F" -> String.format("%.3f", value)
             else -> when{
-                value<10 -> String.format("%.2f",value)
-                value<1000 -> String.format("%.1f",value)
-                else -> value.toInt().toString()
+                value<10 -> String.format("%.3f",value)
+                value<1000 -> String.format("%.3f",value)
+                else -> String.format("%.3f",value)
             }
         }
     }

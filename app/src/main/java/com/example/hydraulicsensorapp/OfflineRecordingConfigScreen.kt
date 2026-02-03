@@ -2,6 +2,7 @@ package com.example.hydraulicsensorapp
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -136,13 +138,43 @@ fun OfflineRecordingConfigScreen(
                     Spacer(Modifier.height(16.dp))
                     
                     // Threshold
-                    Text(stringResource(R.string.label_threshold_percent, triggerThreshold), color = Color(0xFF94A3B8))
-                    Slider(
-                        value = triggerThreshold.toFloat(),
-                        onValueChange = { triggerThreshold = it.toInt() },
-                        valueRange = 0f..100f,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text(stringResource(R.string.label_threshold_percent, triggerThreshold), color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Slider(
+                            value = triggerThreshold.toFloat(),
+                            onValueChange = { triggerThreshold = it.toInt() },
+                            valueRange = 0f..100f,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = triggerThreshold.toString(),
+                            onValueChange = { newValue ->
+                                val intValue = newValue.toIntOrNull()
+                                if (intValue != null && intValue in 0..100) {
+                                    triggerThreshold = intValue
+                                } else if (newValue.isEmpty()) {
+                                    triggerThreshold = 0
+                                }
+                            },
+                            modifier = Modifier.width(80.dp),
+                            textStyle = MaterialTheme.typography.bodyLarge,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color(0xFFCBD5E1),
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color(0xFF475569),
+                                focusedContainerColor = Color(0xFF0F172A),
+                                unfocusedContainerColor = Color(0xFF0F172A)
+                            ),
+                            suffix = { Text("%", color = Color(0xFF94A3B8)) }
+                        )
+                    }
                     
                     Spacer(Modifier.height(16.dp))
                     
@@ -233,14 +265,43 @@ fun OfflineRecordingConfigScreen(
                     )
                     
                     // Number of Samples
-                    Text(stringResource(R.string.label_nr_of_samples, nrOfSamples), color = Color(0xFF94A3B8))
-                    Slider(
-                        value = nrOfSamples.toFloat(),
-                        onValueChange = { nrOfSamples = (it / 1000).toInt() * 1000 },
-                        valueRange = 2000f..maxSamples.toFloat(),
-                        steps = (maxSamples - 2000) / 1000,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text(stringResource(R.string.label_nr_of_samples, nrOfSamples), color = Color(0xFF94A3B8), modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Slider(
+                            value = nrOfSamples.toFloat(),
+                            onValueChange = { nrOfSamples = (it / 1000).toInt() * 1000 },
+                            valueRange = 2000f..maxSamples.toFloat(),
+                            steps = (maxSamples - 2000) / 1000,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = nrOfSamples.toString(),
+                            onValueChange = { newValue ->
+                                val intValue = newValue.toIntOrNull()
+                                if (intValue != null && intValue in 2000..maxSamples) {
+                                    nrOfSamples = (intValue / 1000) * 1000  // Round to nearest 1000
+                                } else if (newValue.isEmpty()) {
+                                    nrOfSamples = 2000
+                                }
+                            },
+                            modifier = Modifier.width(100.dp),
+                            textStyle = MaterialTheme.typography.bodyLarge,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color(0xFFCBD5E1),
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color(0xFF475569),
+                                focusedContainerColor = Color(0xFF0F172A),
+                                unfocusedContainerColor = Color(0xFF0F172A)
+                            )
+                        )
+                    }
                     
                     Spacer(Modifier.height(16.dp))
                     
