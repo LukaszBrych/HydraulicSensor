@@ -69,7 +69,9 @@ fun RecordingViewerScreen(
                     ) {
                         Text(
                             if (viewMode == "chart") "📊 " + stringResource(R.string.button_view_table) else "📈 " + stringResource(R.string.button_view_chart),
-                            color = Color(0xFF3B82F6)
+                            color = Color(0xFF3B82F6),
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
                         )
                     }
                 },

@@ -80,7 +80,7 @@
     <string name="label_date">Data: %s</string>
     <string name="label_size">Rozmiar: %s</string>
     <string name="label_samples_count">Próbki: %d</string>
-    <string name="button_view">👁️ Zobacz</string>
+    <string name="button_view">Zobacz</string>
     <string name="button_share">Udostępnij</string>
     <string name="share_chooser_title">Udostępnij CSV</string>
     <string name="file_size_kb">%d KB</string>

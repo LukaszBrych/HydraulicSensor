@@ -1,6 +1,7 @@
 package com.example.hydraulicsensorapp
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -136,6 +138,9 @@ fun RecordingCard(
     onDelete: () -> Unit,
     onView: () -> Unit = {}
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
         modifier = Modifier.fillMaxWidth()
@@ -193,7 +198,11 @@ fun RecordingCard(
                         contentColor = Color(0xFF10B981)
                     )
                 ) {
-                    Text("👁️ " + stringResource(R.string.button_view))
+                    Text(
+                        (if (isLandscape) "👁️ " else "") + stringResource(R.string.button_view),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
+                    )
                 }
                 
                 OutlinedButton(
@@ -203,13 +212,19 @@ fun RecordingCard(
                         contentColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                    if (isLandscape) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Text(
+                        stringResource(R.string.button_share),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.button_share))
                 }
                 
                 OutlinedButton(
@@ -219,13 +234,19 @@ fun RecordingCard(
                         contentColor = Color(0xFFEF4444)
                     )
                 ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                    if (isLandscape) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Text(
+                        stringResource(R.string.button_delete),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.button_delete))
                 }
             }
         }
