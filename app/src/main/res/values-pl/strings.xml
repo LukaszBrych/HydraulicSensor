@@ -201,4 +201,14 @@
     <string name="label_no_channels_selected">Nie wybrano kanałów</string>
     <string name="label_combined_chart_title">Wszystkie Kanały</string>
     <string name="label_chart_x_axis">Próbka</string>
+    
+    <!-- Device Scan Screen -->
+    <string name="screen_title_scan_devices">Skanuj urządzenia BLE</string>
+    <string name="button_start_scan">Rozpocznij skanowanie</string>
+    <string name="button_stop_scan">Zatrzymaj skanowanie</string>
+    <string name="label_scanning">Skanowanie urządzeń…</string>
+    <string name="label_found_devices">Znalezione urządzenia (%d)</string>
+    <string name="label_no_devices_found">Nie znaleziono urządzeń</string>
+    <string name="hint_tap_scan_to_find_devices">Naciśnij \"Rozpocznij skanowanie\" aby znaleźć urządzenia BLE</string>
+    <string name="menu_change_device">Zmień urządzenie</string>
 </resources>

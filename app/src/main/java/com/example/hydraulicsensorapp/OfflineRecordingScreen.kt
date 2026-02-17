@@ -61,6 +61,7 @@ fun OfflineRecordingScreen(
     onDownloadData: () -> Unit = {},  // Callback do pobierania offline data
     onLiveRecordings: () -> Unit = {},  // Callback do Live Recordings
     onTurbineCalibration: () -> Unit = {},  // Callback do Turbine Calibration
+    onChangeDevice: () -> Unit = {},  // Callback do zmiany urządzenia BLE
     onLanguageChange: (String) -> Unit = {},  // Callback for language change
     currentLanguage: String = "en",  // Current language code
     turbineNames: Map<String, String> = emptyMap(),  // Turbine names for P5/P6
@@ -353,6 +354,14 @@ fun OfflineRecordingScreen(
                                 onClick = {
                                     menuExpanded = false
                                     onTurbineCalibration()
+                                }
+                            )
+                            
+                            MenuItemWithDivider(
+                                text = stringResource(R.string.menu_change_device),
+                                onClick = {
+                                    menuExpanded = false
+                                    onChangeDevice()
                                 }
                             )
                             

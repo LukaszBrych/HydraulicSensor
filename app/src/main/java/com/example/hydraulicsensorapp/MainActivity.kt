@@ -103,6 +103,9 @@ class MainActivity : ComponentActivity() {
     // Turbine names (P5R1-P5R5, P6R1-P6R2)
     private val turbineNames = mutableStateMapOf<String, String>()
     
+    // Saved device MAC address
+    private var savedDeviceMac: String? = null
+    
     private fun loadTurbineNames() {
         val prefs = getSharedPreferences("TurbineNames", MODE_PRIVATE)
         listOf("P5R1", "P5R2", "P5R3", "P5R4", "P5R5", "P6R1", "P6R2").forEach { key ->
@@ -114,6 +117,18 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("TurbineNames", MODE_PRIVATE)
         prefs.edit().putString(key, name).apply()
         turbineNames[key] = name
+    }
+    
+    private fun loadSavedDeviceMac(): String? {
+        val prefs = getSharedPreferences("BLEDevice", MODE_PRIVATE)
+        return prefs.getString("deviceMac", null)
+    }
+    
+    private fun saveDeviceMac(mac: String) {
+        val prefs = getSharedPreferences("BLEDevice", MODE_PRIVATE)
+        prefs.edit().putString("deviceMac", mac).apply()
+        savedDeviceMac = mac
+        Log.d("SensorBox", "Saved device MAC: $mac")
     }
     
     // Language management
@@ -606,9 +621,10 @@ class MainActivity : ComponentActivity() {
         bluetoothAdapter = (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
         requestPermissionsIfNeeded()
         loadTurbineNames()
+        savedDeviceMac = loadSavedDeviceMac()
 
         setContent {
-            var currentScreen by remember { mutableStateOf("main") }
+            var currentScreen by remember { mutableStateOf(if (savedDeviceMac == null) "deviceScan" else "main") }
             var selectedFile by remember { mutableStateOf<java.io.File?>(null) }
             var showMessage by remember { mutableStateOf<String?>(null) }
             
@@ -659,6 +675,7 @@ class MainActivity : ComponentActivity() {
                             onDownloadData = { currentScreen = "downloadData" },
                             onLiveRecordings = { currentScreen = "liveRecordings" },
                             onTurbineCalibration = { currentScreen = "turbineCalibration" },
+                            onChangeDevice = { currentScreen = "deviceScan" },
                             onLanguageChange = { languageCode -> saveLanguage(languageCode) },
                             currentLanguage = getCurrentLanguage(),
                             turbineNames = turbineNames.toMap(),
@@ -713,6 +730,22 @@ class MainActivity : ComponentActivity() {
                             onClearMemory = { callback -> clearOfflineMemory(callback) }
                         )
                         
+                        "deviceScan" -> DeviceScanScreen(
+                            onBackClick = { 
+                                if (savedDeviceMac == null) {
+                                    finish() // Exit app if no device was ever selected
+                                } else {
+                                    currentScreen = "main"
+                                }
+                            },
+                            onDeviceSelected = { macAddress ->
+                                saveDeviceMac(macAddress)
+                                currentScreen = "main"
+                                // Auto-connect to the selected device
+                                connectToDevice()
+                            }
+                        )
+                        
                         "turbineCalibration" -> TurbineCalibrationScreen(
                             onBackClick = { currentScreen = "main" },
                             onSendCommand = { command -> 
@@ -738,8 +771,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissionsIfNeeded() {
-        val permissions = mutableListOf(Manifest.permission.BLUETOOTH_CONNECT)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+        val permissions = mutableListOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+        }
         if (permissions.any{ActivityCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}){
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(),1)
         }
@@ -750,7 +788,10 @@ class MainActivity : ComponentActivity() {
             Log.e("SensorBox","BluetoothAdapter null!")
             return
         }
-        connectToDeviceByMac(sensorMac)
+        
+        val macToConnect = savedDeviceMac ?: sensorMac
+        Log.d("SensorBox", "Connecting to device: $macToConnect")
+        connectToDeviceByMac(macToConnect)
     }
     
     private fun disconnectFromDevice() {
