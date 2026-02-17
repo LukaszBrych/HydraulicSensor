@@ -53,6 +53,7 @@ fun OfflineRecordingConfigScreen(
     // Trigger settings
     var triggerChannel by remember { mutableIntStateOf(1) }
     var triggerThreshold by remember { mutableIntStateOf(50) }
+    var thresholdText by remember { mutableStateOf("50") }
     var triggerEdge by remember { mutableStateOf("Rising") }
     
     // Recording channels (P1-P6)
@@ -65,6 +66,7 @@ fun OfflineRecordingConfigScreen(
     
     // Timing
     var nrOfSamples by remember { mutableIntStateOf(60000) }
+    var samplesText by remember { mutableStateOf("60000") }
     var timeBase by remember { mutableStateOf("1ms") }
     
     // Calculate max samples based on active channels (tylko P1-P4)
@@ -91,6 +93,7 @@ fun OfflineRecordingConfigScreen(
     // Adjust samples if exceeds max
     if (nrOfSamples > maxSamples - 1000) {
         nrOfSamples = maxSamples - 1000
+        samplesText = nrOfSamples.toString()
     }
     
     Scaffold(
@@ -165,18 +168,24 @@ fun OfflineRecordingConfigScreen(
                     ) {
                         Slider(
                             value = triggerThreshold.toFloat(),
-                            onValueChange = { triggerThreshold = it.toInt() },
+                            onValueChange = { 
+                                val newValue = it.toInt()
+                                triggerThreshold = newValue
+                                thresholdText = newValue.toString()
+                            },
                             valueRange = 0f..100f,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
-                            value = triggerThreshold.toString(),
+                            value = thresholdText,
                             onValueChange = { newValue ->
+                                // Allow any input including empty
+                                thresholdText = newValue
+                                
+                                // Only update triggerThreshold if valid number
                                 val intValue = newValue.toIntOrNull()
                                 if (intValue != null && intValue in 0..100) {
                                     triggerThreshold = intValue
-                                } else if (newValue.isEmpty()) {
-                                    triggerThreshold = 0
                                 }
                             },
                             modifier = Modifier.width(80.dp),
@@ -292,19 +301,25 @@ fun OfflineRecordingConfigScreen(
                     ) {
                         Slider(
                             value = nrOfSamples.toFloat(),
-                            onValueChange = { nrOfSamples = (it / 1000).toInt() * 1000 },
+                            onValueChange = { 
+                                val newValue = (it / 1000).toInt() * 1000
+                                nrOfSamples = newValue
+                                samplesText = newValue.toString()
+                            },
                             valueRange = 2000f..maxSamples.toFloat(),
                             steps = (maxSamples - 2000) / 1000,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
-                            value = nrOfSamples.toString(),
+                            value = samplesText,
                             onValueChange = { newValue ->
+                                // Allow any input including empty
+                                samplesText = newValue
+                                
+                                // Only update nrOfSamples if valid number
                                 val intValue = newValue.toIntOrNull()
                                 if (intValue != null && intValue in 2000..maxSamples) {
                                     nrOfSamples = (intValue / 1000) * 1000  // Round to nearest 1000
-                                } else if (newValue.isEmpty()) {
-                                    nrOfSamples = 2000
                                 }
                             },
                             modifier = Modifier.width(100.dp),

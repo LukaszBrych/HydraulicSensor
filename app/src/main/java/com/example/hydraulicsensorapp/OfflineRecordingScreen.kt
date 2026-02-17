@@ -616,8 +616,7 @@ fun SensorTile(
             if (shouldShowTurbineName) {
                 val turbineKey = "${id}R${rangeIndex + 1}"  // P5R1, P5R2, ..., P6R1, P6R2
                 val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R${rangeIndex + 1}"
-                // Tylko nazwa turbiny, bez wartości zakresu i jednostki
-                turbineName
+                "$turbineName ${displayUnit.uppercase()}"
             } else if (rangeUnit != displayUnit && originalUnit != displayUnit) {
                 // Konwertuj wartość zakresu
                 val convertedRangeValue = convertValue(rangeValue, rangeUnit, displayUnit)
@@ -629,22 +628,22 @@ fun SensorTile(
             val rangeIndex = currentRanges.indexOf(range).coerceAtLeast(0)
             val shouldShowTurbineName = (id == "P5") || (id == "P6" && rangeIndex < 2)
             
-            // Dla P5 (wszystkie) i P6 (tylko R1-R2) pokaż nazwę turbiny
+            // Dla P5 (wszystkie) i P6 (tylko R1-R2) pokaż nazwę turbiny + jednostkę
             if (shouldShowTurbineName) {
                 val turbineKey = "${id}R${rangeIndex + 1}"
                 val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R${rangeIndex + 1}"
-                turbineName
+                "$turbineName ${displayUnit.uppercase()}"
             } else {
                 displayUnit.uppercase()
             }
         }
     } else {
-        // Dla P5 i P6 (R1) pokaż nazwę turbiny
+        // Dla P5 i P6 (R1) pokaż nazwę turbiny + jednostkę
         val shouldShowTurbineName = id == "P5" || id == "P6"
         if (shouldShowTurbineName) {
             val turbineKey = "${id}R1"  // Domyślnie R1 jeśli brak zakresu
             val turbineName = turbineNames[turbineKey]?.takeIf { it.isNotBlank() } ?: "R1"
-            turbineName
+            "$turbineName ${displayUnit.uppercase()}"
         } else {
             displayUnit.uppercase()
         }
