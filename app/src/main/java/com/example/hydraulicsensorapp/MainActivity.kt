@@ -155,6 +155,8 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun setLocale(languageCode: String) {
+        // Wymuś orientację portretową przed recreate - po recreate screenWidthSignal = 360
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         recreate()
     }
 
@@ -617,6 +619,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Przywróć auto-rotację po ewentualnym wymuszeniu portretu podczas zmiany języka
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         
         bluetoothAdapter = (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
         requestPermissionsIfNeeded()

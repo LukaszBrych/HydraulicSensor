@@ -73,6 +73,8 @@ fun OfflineRecordingScreen(
     var startCountdown by remember { mutableIntStateOf(0) }  // 0 = brak blokady, 3,2,1 = odliczanie
     val snackbarHostState = remember { SnackbarHostState() }
     var previousConnectionStatus by remember { mutableStateOf(connectionStatus) }
+    // Sygnał zmiany orientacji - odczytywany NA POZIOMIE Activity (nie Dialog)
+    var screenWidthSignal by remember { mutableIntStateOf(0) }
     
     // MIN/MAX tracking dla każdego kanału
     val minValues = remember { mutableStateListOf(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE) }
@@ -245,7 +247,15 @@ fun OfflineRecordingScreen(
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val currentScreenWidth = maxWidth.value.toInt()
+            // Aktualizuj synchronicznie - od razu przy pierwszym renderze i przy każdej zmianie
+            if (screenWidthSignal != currentScreenWidth) {
+                if (screenWidthSignal != 0) {
+                    Log.d("OfflineRecordingScreen", "🔄 Screen width changed $screenWidthSignal → $currentScreenWidth (orientation change)")
+                }
+                screenWidthSignal = currentScreenWidth
+            }
             // Main content
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -265,6 +275,7 @@ fun OfflineRecordingScreen(
                         startCountdown = startCountdown,
                         minValues = minValues,
                         maxValues = maxValues,
+                        screenWidthSignal = screenWidthSignal,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -493,6 +504,7 @@ fun SensorGrid(
     startCountdown: Int = 0,
     minValues: List<Double> = emptyList(),
     maxValues: List<Double> = emptyList(),
+    screenWidthSignal: Int = 0,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -520,7 +532,8 @@ fun SensorGrid(
                 turbineNames = turbineNames,
                 startCountdown = startCountdown,
                 minValue = minValues.getOrNull(index),
-                maxValue = maxValues.getOrNull(index)
+                maxValue = maxValues.getOrNull(index),
+                screenWidthSignal = screenWidthSignal
             )
         }
     }
@@ -544,10 +557,31 @@ fun SensorTile(
     turbineNames: Map<String, String> = emptyMap(),
     startCountdown: Int = 0,
     minValue: Double? = null,
-    maxValue: Double? = null
+    maxValue: Double? = null,
+    screenWidthSignal: Int = 0
 ) {
     var showRangeDialog by remember { mutableStateOf(false) }
-    
+    var lastScreenWidth by remember { mutableIntStateOf(screenWidthSignal) }
+    var dialogWasOpen by remember { mutableStateOf(false) }
+
+    // Przy zmianie orientacji: zamknij i od razu otwórz ponownie
+    if (screenWidthSignal != 0 && lastScreenWidth != 0 && lastScreenWidth != screenWidthSignal) {
+        Log.d("SensorTile", "$id: 🔄 Screen width changed $lastScreenWidth → $screenWidthSignal, reopening dialog")
+        lastScreenWidth = screenWidthSignal
+        if (showRangeDialog) {
+            dialogWasOpen = true
+            showRangeDialog = false
+        }
+    } else if (lastScreenWidth != screenWidthSignal) {
+        lastScreenWidth = screenWidthSignal
+    }
+
+    // Otwórz dialog ponownie po zmianie orientacji
+    if (dialogWasOpen && !showRangeDialog) {
+        dialogWasOpen = false
+        showRangeDialog = true
+    }
+
     // Funkcja konwersji jednostek
     fun convertValue(value: Float, fromUnit: String, toUnit: String): Float {
         return when {
@@ -701,16 +735,17 @@ fun SensorTile(
                 // Wyślij do SensorBox przez BLE (z informacją o selectedUnit)
                 onSendRangeSettings(index, activeRangeIndex, newRanges, selectedUnit)
             },
-            turbineNames = turbineNames
+            turbineNames = turbineNames,
+            screenWidthDp = screenWidthSignal
         )
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().height(200.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-        border = BorderStroke(1.dp, Color(0xFF334155)),
-        shape = RoundedCornerShape(12.dp)
-    ) {
+            modifier = Modifier.fillMaxWidth().height(200.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            border = BorderStroke(1.dp, Color(0xFF334155)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

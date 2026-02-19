@@ -1,5 +1,6 @@
 package com.example.hydraulicsensorapp
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +30,8 @@ fun RangeSettingsDialog(
     onQueryEndValues: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (activeRangeIndex: Int, allRanges: List<String>, selectedUnit: String) -> Unit,
-    turbineNames: Map<String, String> = emptyMap()
+    turbineNames: Map<String, String> = emptyMap(),
+    screenWidthDp: Int = 0  // Przekazany z BoxWithConstraints w OfflineRecordingScreen
 ) {
     // Zapytaj o wartości końcowe po otwarciu dialogu
     LaunchedEffect(Unit) {
@@ -164,18 +166,20 @@ fun RangeSettingsDialog(
         return null
     }
 
+    // Wykryj orientację na podstawie szerokości przekazanej z BoxWithConstraints (działa poprawnie)
+    val isShortDialog = screenWidthDp > 500  // landscape gdy szerokość > 500dp
+    
+    Log.d("RangeSettingsDialog", "Dialog for $sensorId: screenWidthDp=$screenWidthDp, isLandscape=$isShortDialog")
+    
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         BoxWithConstraints {
-            // Wykryj czy dialog jest niski (landscape) czy wysoki (portrait)
-            val isShortDialog = maxHeight < 500.dp
-            
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .fillMaxHeight(0.85f),
+                    .fillMaxWidth(if (isShortDialog) 0.97f else 0.95f)  // Szerszy w landscape
+                    .fillMaxHeight(if (isShortDialog) 0.97f else 0.85f), // Wyższy w landscape
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
             ) {
             Column(modifier = Modifier.fillMaxSize()) {
