@@ -149,7 +149,12 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     var xRange by remember { mutableStateOf(0f..(data.samples.size.toFloat())) }
-                    var yRange by remember { mutableStateOf((channel.min ?: 0f)..(channel.max ?: 100f)) }
+                    val rawMin = channel.min ?: 0f
+                    val rawMax = channel.max ?: 100f
+                    // Zapewnij że zakres Y nie jest zerowy (min != max)
+                    val safeYMin = if (rawMin == rawMax) rawMin - 1f else rawMin
+                    val safeYMax = if (rawMin == rawMax) rawMax + 1f else rawMax
+                    var yRange by remember { mutableStateOf(safeYMin..safeYMax) }
                     
                     Text(
                         "P${channel.index} (${channel.unit})",
@@ -184,7 +189,7 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
                         TextButton(
                             onClick = { 
                                 xRange = 0f..(data.samples.size.toFloat())
-                                yRange = (channel.min ?: 0f)..(channel.max ?: 100f)
+                                yRange = safeYMin..safeYMax
                             }
                         ) {
                             Text("Reset", color = Color(0xFF3B82F6), style = MaterialTheme.typography.bodySmall)
@@ -215,7 +220,7 @@ fun ChartView(data: CSVData, modifier: Modifier = Modifier) {
                     RangeSlider(
                         value = yRange,
                         onValueChange = { yRange = it },
-                        valueRange = (channel.min ?: 0f)..(channel.max ?: 100f),
+                        valueRange = safeYMin..safeYMax,
                         colors = SliderDefaults.colors(
                             thumbColor = Color(0xFF10B981),
                             activeTrackColor = Color(0xFF10B981),
@@ -301,8 +306,9 @@ fun LineChart(
         
         // Calculate range with some padding
         val range = maxValue - minValue
-        val paddedMin = minValue - range * 0.1f
-        val paddedMax = maxValue + range * 0.1f
+        val effectiveRange = if (range == 0f) 1f else range
+        val paddedMin = minValue - effectiveRange * 0.1f
+        val paddedMax = maxValue + effectiveRange * 0.1f
         val paddedRange = paddedMax - paddedMin
         
         // Draw grid lines
@@ -640,69 +646,95 @@ fun parseCSVFile(file: File): CSVData {
     
     if (lines.isEmpty()) return CSVData(emptyList(), emptyList())
     
-    // Parse header
-    val header = lines[0].split(";")
+    // Pomiń linie komentarzy (zaczynające się od #) i puste
+    val dataLines = lines.filter { it.isNotBlank() && !it.startsWith("#") }
+    if (dataLines.isEmpty()) return CSVData(emptyList(), emptyList())
+    
+    val header = dataLines[0].split(";")
     android.util.Log.d("RecordingViewer", "📋 Header: ${header.joinToString(" | ")}")
+    
+    // Wykryj format: Offline (Sample;P1;P2...) vs Live (Timestamp;Elapsed_s;P1_unit...)
+    val isOfflineFormat = header.firstOrNull()?.trim() == "Sample"
+    android.util.Log.d("RecordingViewer", "📂 Format: ${if (isOfflineFormat) "OFFLINE" else "LIVE"}")
     
     val channels = mutableListOf<ChannelInfo>()
     
-    // Find channel columns (skip Timestamp and Elapsed_s)
-    header.drop(2).forEachIndexed { index, columnName ->
-        android.util.Log.d("RecordingViewer", "  Column $index: '$columnName'")
-        if (columnName.startsWith("P")) {
-            val parts = columnName.split("_")
-            val channelIndex = parts[0].removePrefix("P").toIntOrNull()
-            val unit = parts.getOrNull(1) ?: ""
-            android.util.Log.d("RecordingViewer", "    → P$channelIndex unit=$unit")
+    if (isOfflineFormat) {
+        // Format offline: Sample;P1;P2;P3;P4
+        // Pobierz jednostki z nagłówka komentarzy (#)
+        val unitLine = lines.find { it.startsWith("# Units:") } ?: ""
+        val unitMap = mutableMapOf<Int, String>()
+        Regex("P(\\d+)=([^\\s]+)").findAll(unitLine).forEach { match ->
+            val ch = match.groupValues[1].toIntOrNull() ?: return@forEach
+            unitMap[ch] = match.groupValues[2]
+        }
+        
+        header.drop(1).forEachIndexed { index, colName ->
+            val channelIndex = colName.trim().removePrefix("P").toIntOrNull()
             if (channelIndex != null) {
+                val unit = unitMap[channelIndex] ?: ""
                 channels.add(ChannelInfo(channelIndex, unit, null, null, null))
             }
         }
-    }
-    
-    android.util.Log.d("RecordingViewer", "✅ Found ${channels.size} channels: ${channels.map { "P${it.index}" }}")
-    
-    // Parse data
-    val samples = lines.drop(1).mapNotNull { line ->
-        if (line.isBlank()) return@mapNotNull null
         
-        val parts = line.split(";")
-        if (parts.size < 2) {
-            android.util.Log.w("RecordingViewer", "⚠️ Line too short: ${parts.size} parts")
-            return@mapNotNull null
+        val samples = dataLines.drop(1).mapNotNull { line ->
+            if (line.isBlank()) return@mapNotNull null
+            val parts = line.split(";")
+            val sampleIndex = parts[0].replace(",", ".").toFloatOrNull() ?: return@mapNotNull null
+            val values = mutableMapOf<Int, Float>()
+            channels.forEachIndexed { index, channel ->
+                val valueStr = parts.getOrNull(index + 1) ?: return@forEachIndexed
+                values[channel.index] = valueStr.replace(",", ".").toFloatOrNull() ?: return@forEachIndexed
+            }
+            SampleData(sampleIndex, values)
         }
         
-        // Replace comma with dot for parsing (Polish locale uses comma)
-        val elapsed = parts[1].replace(",", ".").toFloatOrNull()
-        if (elapsed == null) {
-            android.util.Log.w("RecordingViewer", "⚠️ Cannot parse elapsed: '${parts[1]}'")
-            return@mapNotNull null
+        val channelsWithStats = channels.map { channel ->
+            val channelValues = samples.mapNotNull { it.values[channel.index] }
+            channel.copy(
+                min = channelValues.minOrNull(),
+                max = channelValues.maxOrNull(),
+                avg = if (channelValues.isNotEmpty()) channelValues.average().toFloat() else null
+            )
+        }
+        android.util.Log.d("RecordingViewer", "✅ Offline: ${channelsWithStats.size} channels, ${samples.size} samples")
+        return CSVData(channelsWithStats, samples)
+        
+    } else {
+        // Format Live: Timestamp;Elapsed_s;P1_bar;P2_bar...
+        header.drop(2).forEachIndexed { index, columnName ->
+            if (columnName.startsWith("P")) {
+                val parts = columnName.split("_")
+                val channelIndex = parts[0].removePrefix("P").toIntOrNull()
+                val unit = parts.getOrNull(1) ?: ""
+                if (channelIndex != null) {
+                    channels.add(ChannelInfo(channelIndex, unit, null, null, null))
+                }
+            }
         }
         
-        val values = mutableMapOf<Int, Float>()
-        
-        channels.forEachIndexed { index, channel ->
-            val valueStr = parts.getOrNull(index + 2) ?: return@forEachIndexed
-            // Replace comma with dot for parsing
-            val value = valueStr.replace(",", ".").toFloatOrNull() ?: return@forEachIndexed
-            values[channel.index] = value
+        val samples = dataLines.drop(1).mapNotNull { line ->
+            if (line.isBlank()) return@mapNotNull null
+            val parts = line.split(";")
+            if (parts.size < 2) return@mapNotNull null
+            val elapsed = parts[1].replace(",", ".").toFloatOrNull() ?: return@mapNotNull null
+            val values = mutableMapOf<Int, Float>()
+            channels.forEachIndexed { index, channel ->
+                val valueStr = parts.getOrNull(index + 2) ?: return@forEachIndexed
+                values[channel.index] = valueStr.replace(",", ".").toFloatOrNull() ?: return@forEachIndexed
+            }
+            SampleData(elapsed, values)
         }
         
-        SampleData(elapsed, values)
+        val channelsWithStats = channels.map { channel ->
+            val channelValues = samples.mapNotNull { it.values[channel.index] }
+            channel.copy(
+                min = channelValues.minOrNull(),
+                max = channelValues.maxOrNull(),
+                avg = if (channelValues.isNotEmpty()) channelValues.average().toFloat() else null
+            )
+        }
+        android.util.Log.d("RecordingViewer", "✅ Live: ${channelsWithStats.size} channels, ${samples.size} samples")
+        return CSVData(channelsWithStats, samples)
     }
-    
-    android.util.Log.d("RecordingViewer", "✅ Parsed ${samples.size} samples")
-    
-    // Calculate statistics
-    val channelsWithStats = channels.map { channel ->
-        val channelValues = samples.mapNotNull { it.values[channel.index] }
-        android.util.Log.d("RecordingViewer", "  P${channel.index}: ${channelValues.size} values, min=${channelValues.minOrNull()}, max=${channelValues.maxOrNull()}")
-        channel.copy(
-            min = channelValues.minOrNull(),
-            max = channelValues.maxOrNull(),
-            avg = if (channelValues.isNotEmpty()) channelValues.average().toFloat() else null
-        )
-    }
-    
-    return CSVData(channelsWithStats, samples)
 }

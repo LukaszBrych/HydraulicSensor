@@ -72,6 +72,11 @@ class MainActivity : ComponentActivity() {
     private val channelValues = mutableStateListOf(
         "P1: ---", "P2: ---", "P3: ---", "P4: ---", "P5: ---", "P6: ---"
     )
+    // Bufor surowych danych BLE - zapisywany z wątku BLE bez State, nie triggeruje recomposition
+    private val latestChannelRaw = Array(6) { "---" }
+    private val latestChannelCsv = Array(6) { Float.NaN }
+    @Volatile private var uiUpdatePending = false
+    private val UI_UPDATE_INTERVAL_MS = 100L  // odśwież UI max 10x/sekundę
 
     private val ranges = mutableStateListOf("10bar","10bar","10bar","125°C","605lpm","394lpm")
     private val pendingRanges = MutableList(6){ ranges[it] }
@@ -181,10 +186,14 @@ class MainActivity : ComponentActivity() {
     )
 
     private val currentRanges = MutableList(6){ ranges[it] }
+    // Aktywne indeksy zakresów R1-R5 per kanał (1=R1, 2=R2, ..., 5=R5) - aktualizowane z odpowiedzi 'p'
+    private val activeRangeIndices = androidx.compose.runtime.mutableStateListOf(1, 1, 1, 1, 1, 1)
 
     // --- KOLEJKA BLE ---
     private val writeQueue = ArrayDeque<String>()
     private var isWriting = false
+    @Volatile private var isWaitingForEndValues = false  // flaga: wysłano 'e', czekamy na odpowiedź
+    @Volatile private var isWaitingForP = false           // flaga: wysłano 'p', czekamy na odpowiedź
 
     private var notificationsEnabled = false
     private val WRITE_QUEUE_WARN_THRESHOLD = 20
@@ -422,11 +431,12 @@ class MainActivity : ComponentActivity() {
                 return
             }
 
-            // NAJPIERW sprawdź odpowiedzi komend 'e', 'p', etc. (PRZED ramkami pomiarowymi!)
-            if (buffer.contains("#") && buffer.count { it == '#' } >= 7) {
-                // Może to odpowiedź 'e' - szukaj kompletnej ramki #val1#val2#...#val6#
+            // Odpowiedź na komendę 'e' - TYLKO gdy faktycznie wysłano 'e'
+            if (isWaitingForEndValues && buffer.contains("#") && buffer.count { it == '#' } >= 7) {
+                // Szukaj kompletnej ramki #val1#val2#...#val6#
                 val eMatch = Regex("#([0-9.]+)#([0-9.]+)#([0-9.]+)#([0-9.]+)#([0-9.]+)#([0-9.]+)#").find(buffer)
                 if (eMatch != null) {
+                    isWaitingForEndValues = false
                     val fullMatch = eMatch.value
                     Log.d("SensorBox", "✅ Odpowiedź 'e': $fullMatch")
                     
@@ -460,11 +470,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // Komenda 'p' - 6 cyfr
-            val pMatch = Regex("[1-5]{6}").find(buffer)
-            if (pMatch != null) {
-                if (parseCommandResponse(pMatch.value)) {
-                    buffer = buffer.replace(pMatch.value, "")
+            // Komenda 'p' - TYLKO gdy faktycznie wysłano 'p'
+            // Regex z lookaround: ciąg 6 cyfr 1-5 NIE poprzedzony/zakończony cyfrą lub '.'
+            if (isWaitingForP) {
+                val pMatch = Regex("(?<![0-9.])[1-5]{6}(?![0-9.])").find(buffer)
+                if (pMatch != null) {
+                    isWaitingForP = false
+                    val pValue = pMatch.value
+                    Log.d("SensorBox", "✅ Znaleziono odpowiedź 'p': $pValue w buforze: ${buffer.take(40)}")
+                    buffer = buffer.removeRange(pMatch.range)
+                    parseCommandResponse(pValue)
                 }
             }
 
@@ -478,27 +493,49 @@ class MainActivity : ComponentActivity() {
 
                 val parts = frame.split("#").filter { it.isNotBlank() }
                 if (parts.size >= 6) {
-                    handler.post {
-                        val channelData = mutableMapOf<Int, Float>()
-                        for (i in 0 until 6) {
-                            val rawVal = parts[i].replace("[^0-9.-]".toRegex(), "")
-                            val value = rawVal.toDoubleOrNull()
-                            channelValues[i] =
-                                if (value != null) "P${i + 1}: $value" else "P${i + 1}: ---"
-                            
-                            // Zapisz do CSV jeśli jest wartość - zastosuj konwersję jednostek
-                            if (value != null) {
-                                val originalUnit = originalUnits[i]
-                                val displayUnit = displayUnits[i]
-                                val convertedValue = convertValue(value.toFloat(), originalUnit, displayUnit)
-                                channelData[i + 1] = convertedValue
+                    // Zapisz dane do bufora - bez State, bez recomposition
+                    val channelData = mutableMapOf<Int, Float>()
+                    for (i in 0 until 6) {
+                        val rawVal = parts[i].replace("[^0-9.-]".toRegex(), "")
+                        val value = rawVal.toDoubleOrNull()
+                        latestChannelRaw[i] = if (value != null) "$value" else "---"
+                        if (value != null) {
+                            val originalUnit = originalUnits[i]
+                            val displayUnit = displayUnits[i]
+                            val convertedValue = convertValue(value.toFloat(), originalUnit, displayUnit)
+                            latestChannelCsv[i] = convertedValue
+                            channelData[i + 1] = convertedValue
+                        } else {
+                            latestChannelCsv[i] = Float.NaN
+                        }
+                    }
+                    // P3 w trybie R1 (różnicowy P1-P2): oblicz programowo zamiast polegać na SensorBox
+                    if (activeRangeIndices[2] == 1) {
+                        val p1 = latestChannelRaw[0].toDoubleOrNull()
+                        val p2 = latestChannelRaw[1].toDoubleOrNull()
+                        if (p1 != null && p2 != null) {
+                            val diff = p1 - p2
+                            val diffRounded = String.format(java.util.Locale.US, "%.4f", diff).trimEnd('0').trimEnd('.')
+                            latestChannelRaw[2] = diffRounded
+                            latestChannelCsv[2] = diff.toFloat()
+                            Log.d("LiveData", "🔀 P3 R1 różnicowy: $p1 - $p2 = $diffRounded")
+                        }
+                    }
+                    Log.d("LiveData", "📊 P1=${latestChannelRaw[0]} ${displayUnits[0]}  P2=${latestChannelRaw[1]} ${displayUnits[1]}  P3=${latestChannelRaw[2]} ${displayUnits[2]}  P4=${latestChannelRaw[3]} ${displayUnits[3]}  P5=${latestChannelRaw[4]} ${displayUnits[4]}  P6=${latestChannelRaw[5]} ${displayUnits[5]}")
+                    // Log do CSV (nie wymaga UI thread)
+                    if (channelData.isNotEmpty()) {
+                        csvLogger?.logSample(channelData)
+                    }
+                    // Zaplanuj jedno odświeżenie UI jeśli jeszcze nie zaplanowano
+                    if (!uiUpdatePending) {
+                        uiUpdatePending = true
+                        handler.postDelayed({
+                            uiUpdatePending = false
+                            for (i in 0 until 6) {
+                                channelValues[i] = "P${i + 1}: ${latestChannelRaw[i]}"
                             }
-                        }
-                        
-                        // Log do CSV
-                        if (channelData.isNotEmpty()) {
-                            csvLogger?.logSample(channelData)
-                        }
+                            Log.d("LiveData", "🖥️ UI zaktualizowany: ${channelValues.joinToString("  ")}")
+                        }, UI_UPDATE_INTERVAL_MS)
                     }
                 } else {
                     buffer = frame + buffer
@@ -526,26 +563,32 @@ class MainActivity : ComponentActivity() {
             if (response.matches(Regex("^[1-5]{6}\\s*$"))) {
                 Log.d("SensorBox", "✅ Odpowiedź 'p': Aktualne zakresy = $response")
                 val rangesList = response.trim().map { it.toString().toInt() }
+                val callback = pendingRangeQueryCallback
+                pendingRangeQueryCallback = null
                 handler.post {
-                    for (i in rangesList.indices) {
-                        val rangeIndex = rangesList[i] - 1  // R1=0, R2=1, etc.
-                        Log.d("SensorBox", "P${i+1} = R${rangesList[i]}")
-                        
-                        // Zaktualizuj ranges z aktualnym zakresem z SensorBox
-                        // Pobieramy wartość końcową z endValues jeśli już pobrana
-                        if (endValues[i] != "---") {
-                            // Musimy odgadnąć jednostkę na podstawie typu czujnika
-                            val unit = when(i) {
-                                0, 1, 2 -> "bar"  // P1, P2, P3 - ciśnienie
-                                3 -> "C"          // P4 - temperatura
-                                4, 5 -> "lpm"     // P5, P6 - przepływ
-                                else -> "bar"
+                    // Jeśli jest callback (zmiana zakresu w toku), NIE nadpisuj ranges/activeRangeIndices
+                    // bo sendRangeSettingsToSensorBox już zaktualizowało je lokalnie
+                    if (callback == null) {
+                        for (i in rangesList.indices) {
+                            activeRangeIndices[i] = rangesList[i]
+                            Log.d("SensorBox", "P${i+1} = R${rangesList[i]}")
+                            if (endValues[i] != "---") {
+                                val unit = when(i) {
+                                    0, 1, 2 -> "bar"
+                                    3 -> "C"
+                                    4, 5 -> "lpm"
+                                    else -> "bar"
+                                }
+                                ranges[i] = "${endValues[i]} $unit"
+                                pendingRanges[i] = "${endValues[i]} $unit"
+                                Log.d("SensorBox", "Zaktualizowano P${i+1}: ${ranges[i]}")
                             }
-                            ranges[i] = "${endValues[i]} $unit"
-                            pendingRanges[i] = "${endValues[i]} $unit"
-                            Log.d("SensorBox", "Zaktualizowano P${i+1}: ${ranges[i]}")
                         }
+                    } else {
+                        Log.d("SensorBox", "Pomijam nadpisanie ranges — zmiana zakresu w toku")
                     }
+                    // Wywołaj callback z indeksami z SensorBox (do budowy rCmd)
+                    callback?.invoke(rangesList)
                 }
                 return true
             }
@@ -630,6 +673,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var currentScreen by remember { mutableStateOf(if (savedDeviceMac == null) "deviceScan" else "main") }
+            var previousScreen by remember { mutableStateOf("liveRecordings") }
             var selectedFile by remember { mutableStateOf<java.io.File?>(null) }
             var showMessage by remember { mutableStateOf<String?>(null) }
             
@@ -684,13 +728,15 @@ class MainActivity : ComponentActivity() {
                             onLanguageChange = { languageCode -> saveLanguage(languageCode) },
                             currentLanguage = getCurrentLanguage(),
                             turbineNames = turbineNames.toMap(),
-                            showMessage = showMessage
+                            showMessage = showMessage,
+                            activeRangeIndices = activeRangeIndices
                         )
                         
                         "liveRecordings" -> LiveRecordingsScreen(
                             onBack = { currentScreen = "main" },
                             onViewFile = { file ->
                                 selectedFile = file
+                                previousScreen = "liveRecordings"
                                 currentScreen = "recordingViewer"
                             }
                         )
@@ -698,7 +744,7 @@ class MainActivity : ComponentActivity() {
                         "recordingViewer" -> selectedFile?.let { file ->
                             RecordingViewerScreen(
                                 file = file,
-                                onBack = { currentScreen = "liveRecordings" }
+                                onBack = { currentScreen = previousScreen }
                             )
                         }
                         
@@ -727,6 +773,11 @@ class MainActivity : ComponentActivity() {
                             },
                             onSaveCSV = { header, data, filename, callback ->
                                 saveToCSV(header, data, filename, callback)
+                            },
+                            onViewFile = { file ->
+                                selectedFile = file
+                                previousScreen = "downloadData"
+                                currentScreen = "recordingViewer"
                             },
                             isRecording = isOfflineRecording.value,
                             timeRemaining = offlineRecordingTimeRemaining.intValue,
@@ -912,60 +963,92 @@ class MainActivity : ComponentActivity() {
                 return
             }
 
-            // Zatrzymaj live read
+            // Zatrzymaj live read: usuń timer d\n i wyczyść queue z zakolejkowanych d\n
             if (isReadingLive.value) stopLiveRead()
+            writeQueue.clear()
+            isWriting = false
+            // Anuluj poprzedni oczekujący callback/timeout jeśli istnieje
+            pendingRangeTimeoutRunnable?.let { handler.removeCallbacks(it) }
+            pendingRangeTimeoutRunnable = null
+            pendingRangeQueryCallback = null
+            isWaitingForP = false
 
-            // Krok 1: Wyślij komendę 'r' (ustawienie aktywnego zakresu dla tego kanału)
-            // Format: r{P1range}{P2range}{P3range}{P4range}{P5range}{P6range}
-            // Musimy zachować aktualne zakresy innych kanałów
-            val currentActiveRanges = MutableList(6) { idx ->
-                if (idx == channelIndex) {
-                    activeRangeIndex + 1  // R1=1, R2=2, etc.
-                } else {
-                    // Zachowaj aktualny zakres z currentRanges
-                    1  // Domyślnie R1, możesz to ulepszyć
-                }
-            }
-            
-            val rCmd = "r${currentActiveRanges.joinToString("")}\n"
-            Log.d("SensorBox", "Wysyłam: $rCmd")
-            enqueueWrite(g, rCmd)
+            // Zaktualizuj lokalny stan od razu
+            ranges[channelIndex] = allRanges[activeRangeIndex]
+            pendingRanges[channelIndex] = allRanges[activeRangeIndex]
+            activeRangeIndices[channelIndex] = activeRangeIndex + 1
 
-            // Krok 2: Wyślij komendy 'w' dla wszystkich 5 zakresów tego kanału
-            // Format: w{channel}{range} {value} {unit}
-            //WAŻNE: Zawsze wysyłaj w oryginalnej jednostce z SensorBox!
+            // Przygotuj komendy 'w' z konwersją jednostek
+            val wCmds = mutableListOf<String>()
             allRanges.forEachIndexed { rangeIdx, rangeValue ->
-                Log.d("SensorBox", "DEBUG: rangeValue='$rangeValue' channelIndex=$channelIndex")
                 val parts = rangeValue.split(" ")
-                Log.d("SensorBox", "DEBUG: parts.size=${parts.size} parts=$parts")
                 if (parts.size >= 2) {
                     val displayValue = parts[0].toFloatOrNull() ?: 0f
                     val displayUnit = parts[1]
                     val originalUnit = originalUnits[channelIndex]
-                    
-                    Log.d("SensorBox", "DEBUG: displayValue=$displayValue displayUnit=$displayUnit originalUnit=$originalUnit")
-                    
-                    // Konwertuj z display unit na original unit
                     val originalValue = convertValue(displayValue, displayUnit, originalUnit)
                     val cmd = "w${channelIndex+1}${rangeIdx+1} ${originalValue.toInt()} $originalUnit\n"
-                    Log.d("SensorBox", "Konwersja: $rangeValue → ${originalValue.toInt()} $originalUnit")
-                    Log.d("SensorBox", "Wysyłam: $cmd")
-                    
-                    handler.postDelayed({
-                        enqueueWrite(g, cmd)
-                        endValUnitCache[channelIndex][rangeIdx] = "${originalValue.toInt()} $originalUnit"
-                    }, (rangeIdx * 100).toLong())
-                } else {
-                    Log.w("SensorBox", "BŁĄD: rangeValue nie ma jednostki: '$rangeValue'")
+                    Log.d("SensorBox", "Przygotowano: $cmd (z $rangeValue)")
+                    wCmds.add(cmd)
+                    endValUnitCache[channelIndex][rangeIdx] = "${originalValue.toInt()} $originalUnit"
                 }
             }
 
-            // Krok 3: Zaktualizuj lokalny stan
-            ranges[channelIndex] = allRanges[activeRangeIndex]
-            pendingRanges[channelIndex] = allRanges[activeRangeIndex]
+            // Callback wywoływany po odebraniu odpowiedzi 'p' - wysyła r + wszystkie w + weryfikacja
+            val sendAll: (List<Int>) -> Unit = { freshIndices ->
+                pendingRangeTimeoutRunnable?.let { handler.removeCallbacks(it) }
+                pendingRangeTimeoutRunnable = null
+                val currentActiveRanges = MutableList(6) { idx ->
+                    if (idx == channelIndex) activeRangeIndex + 1
+                    else freshIndices.getOrElse(idx) { activeRangeIndices[idx] }
+                }
+                val rCmd = "r${currentActiveRanges.joinToString("")}\n"
+                Log.d("SensorBox", "✅ Wysyłam rCmd: $rCmd")
+                enqueueWrite(g, rCmd)
+                wCmds.forEachIndexed { i, cmd ->
+                    handler.postDelayed({ enqueueWrite(g, cmd) }, ((i + 1) * 200).toLong())
+                }
+                // Weryfikacja: po wysłaniu wszystkich 'w' wyślij 'p' żeby potwierdzić zakresy w logach
+                val verifyDelay = ((wCmds.size + 1) * 200 + 500).toLong()
+                handler.postDelayed({
+                    Log.d("SensorBox", "🔍 Weryfikacja zakresów po zmianie...")
+                    isWaitingForP = true
+                    pendingRangeQueryCallback = { verifiedIndices ->
+                        val labels = verifiedIndices.mapIndexed { i, r -> "P${i+1}=R$r" }.joinToString("  ")
+                        Log.d("SensorBox", "✅ Weryfikacja zakresów: $labels")
+                        Unit
+                    }
+                    enqueueWrite(g, "p\n")
+                    Unit
+                }, verifyDelay)
+                Unit
+            }
 
-            // NIE wznawiamy automatycznie pomiarów - użytkownik musi kliknąć "Start"
-            Log.d("SensorBox", "Ustawienia zapisane. Kliknij 'Start' aby rozpocząć pomiary.")
+            // Wyślij 'q' aby zatrzymać SensorBox, potem po 600ms wyślij 'p' → po odpowiedzi wyślij r+w
+            // Jeśli 'p' nie odpowie w 2s — użyj lokalnych activeRangeIndices (timeout fallback)
+            enqueueWrite(g, "q\n")
+            Log.d("SensorBox", "🛑 Wysyłam 'q' — zatrzymuję SensorBox przed zmianą zakresów")
+            handler.postDelayed({
+                pendingRangeQueryCallback = sendAll
+                isWaitingForP = true
+                enqueueWrite(g, "p\n")
+                Log.d("SensorBox", "Wysyłam: p (odczyt zakresów przed zmianą)")
+
+                // Timeout fallback: jeśli 'p' nie dotrze w 2s, wyślij z lokalnych activeRangeIndices
+                val timeoutRunnable = Runnable {
+                    if (isWaitingForP) {
+                        Log.w("SensorBox", "⚠️ Timeout 'p' — wysyłam rCmd z lokalnych danych")
+                        isWaitingForP = false
+                        pendingRangeQueryCallback = null
+                        pendingRangeTimeoutRunnable = null
+                        sendAll(activeRangeIndices.toList())
+                    }
+                }
+                pendingRangeTimeoutRunnable = timeoutRunnable
+                handler.postDelayed(timeoutRunnable, 2000)
+            }, 600)
+
+            Log.d("SensorBox", "Ustawienia zapisane lokalnie. Czekam na odpowiedź 'p'...")
         }
     }
 
@@ -975,6 +1058,7 @@ class MainActivity : ComponentActivity() {
     // Odpowiedź: np. "555212" oznacza P1=R5, P2=R5, P3=R5, P4=R2, P5=R1, P6=R2
     fun queryCurrentRanges() {
         gatt?.let { g ->
+            isWaitingForP = true
             enqueueWrite(g, "p\n")
             Log.d("SensorBox", "Wysłano komendę: p (zapytanie o zakresy)")
         }
@@ -984,6 +1068,7 @@ class MainActivity : ComponentActivity() {
     // Odpowiedź: #100.00#200.00#300.00#500.00#2600.00#6000.00#
     fun queryEndValues() {
         gatt?.let { g ->
+            isWaitingForEndValues = true
             enqueueWrite(g, "e\n")
             Log.d("SensorBox", "Wysłano komendę: e (zapytanie o wartości końcowe)")
         }
@@ -1343,6 +1428,10 @@ class MainActivity : ComponentActivity() {
     private var isWaitingForSingleChar = false  // Dla komendy 'm' (N/R)
     private var isWaitingForRecordingStart = false  // Dla komendy 'sr' (oczekiwanie na 'r')
     private var responseCallback: ((String) -> Unit)? = null
+    // Callback wywoływany gdy przyjdzie odpowiedź 'p' (aktualne zakresy R1-R5 per kanał)
+    private var pendingRangeQueryCallback: ((List<Int>) -> Unit)? = null
+    // Runnable timeouta dla 'p' — przechowujemy referencję żeby móc anulować
+    private var pendingRangeTimeoutRunnable: Runnable? = null
     
     // Buffer do zbierania danych binarnych
     private val binaryBuffer = mutableListOf<Byte>()

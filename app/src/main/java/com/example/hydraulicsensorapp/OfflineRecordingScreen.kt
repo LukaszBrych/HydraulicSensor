@@ -65,7 +65,8 @@ fun OfflineRecordingScreen(
     onLanguageChange: (String) -> Unit = {},  // Callback for language change
     currentLanguage: String = "en",  // Current language code
     turbineNames: Map<String, String> = emptyMap(),  // Turbine names for P5/P6
-    showMessage: String? = null  // Message to show in Snackbar
+    showMessage: String? = null,  // Message to show in Snackbar
+    activeRangeIndices: List<Int> = List(6) { 1 }  // Aktywny indeks zakresu (1-5) per kanał
 ) {
     var isMenuOpen by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -276,6 +277,7 @@ fun OfflineRecordingScreen(
                         minValues = minValues,
                         maxValues = maxValues,
                         screenWidthSignal = screenWidthSignal,
+                        activeRangeIndices = activeRangeIndices,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -505,6 +507,7 @@ fun SensorGrid(
     minValues: List<Double> = emptyList(),
     maxValues: List<Double> = emptyList(),
     screenWidthSignal: Int = 0,
+    activeRangeIndices: List<Int> = List(6) { 1 },
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -533,7 +536,8 @@ fun SensorGrid(
                 startCountdown = startCountdown,
                 minValue = minValues.getOrNull(index),
                 maxValue = maxValues.getOrNull(index),
-                screenWidthSignal = screenWidthSignal
+                screenWidthSignal = screenWidthSignal,
+                activeRangeIndex = activeRangeIndices.getOrElse(index) { 1 }
             )
         }
     }
@@ -558,7 +562,8 @@ fun SensorTile(
     startCountdown: Int = 0,
     minValue: Double? = null,
     maxValue: Double? = null,
-    screenWidthSignal: Int = 0
+    screenWidthSignal: Int = 0,
+    activeRangeIndex: Int = 1  // Aktywny indeks zakresu (1-5) z MainActivity
 ) {
     var showRangeDialog by remember { mutableStateOf(false) }
     var lastScreenWidth by remember { mutableIntStateOf(screenWidthSignal) }
@@ -653,7 +658,7 @@ fun SensorTile(
             val rangeUnit = parts[1]
             
             // Dla P5 (R1-R5) zawsze pokaż nazwę turbiny, dla P6 tylko R1 i R2
-            val rangeIndex = currentRanges.indexOf(range).coerceAtLeast(0)
+            val rangeIndex = activeRangeIndex - 1  // activeRangeIndex jest 1-based z MainActivity
             val shouldShowTurbineName = (id == "P5") || (id == "P6" && rangeIndex < 2)
             
             if (shouldShowTurbineName) {
@@ -668,7 +673,7 @@ fun SensorTile(
                 "${rangeValue.toInt()} ${displayUnit.uppercase()}"
             }
         } else {
-            val rangeIndex = currentRanges.indexOf(range).coerceAtLeast(0)
+            val rangeIndex = activeRangeIndex - 1  // activeRangeIndex jest 1-based z MainActivity
             val shouldShowTurbineName = (id == "P5") || (id == "P6" && rangeIndex < 2)
             
             // Dla P5 (wszystkie) i P6 (tylko R1-R2) pokaż nazwę turbiny + jednostkę

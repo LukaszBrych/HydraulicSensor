@@ -45,6 +45,7 @@ fun DownloadOfflineDataScreen(
     onGetHeader: (callback: (Map<String, String>?) -> Unit) -> Unit,
     onDownloadChannel: (channel: Int, endValue: Float, callback: (List<Float>?) -> Unit) -> Unit,
     onSaveCSV: (header: Map<String, String>, data: Map<Int, List<Float>>, filename: String, callback: (Boolean, String?) -> Unit) -> Unit,
+    onViewFile: (java.io.File) -> Unit = {},
     onStopRecording: () -> Unit,
     onClearMemory: (callback: (Boolean) -> Unit) -> Unit,
     isRecording: Boolean = false,
@@ -61,6 +62,7 @@ fun DownloadOfflineDataScreen(
     var downloadedData by remember { mutableStateOf<Map<Int, List<Float>>>(emptyMap()) }
     var statusMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+    var savedFile by remember { mutableStateOf<java.io.File?>(null) }
 
     Scaffold(
         topBar = {
@@ -338,6 +340,12 @@ fun DownloadOfflineDataScreen(
                                     if (success) {
                                         statusMessage = context.getString(R.string.success_data_saved, filename)
                                         downloadProgress = ""
+                                        // Znajdź zapisany plik
+                                        val dir = java.io.File(
+                                            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                                            "HydraulicSensorApp"
+                                        )
+                                        savedFile = java.io.File(dir, filename)
                                     } else {
                                         errorMessage = context.getString(R.string.error_save_failed, message ?: "")
                                         downloadProgress = ""
@@ -412,6 +420,20 @@ fun DownloadOfflineDataScreen(
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyLarge
                     )
+                }
+                // Przycisk podglądu po udanym zapisie
+                savedFile?.let { file ->
+                    if (file.exists()) {
+                        Button(
+                            onClick = { onViewFile(file) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = androidx.compose.ui.graphics.Color(0xFF3B82F6)
+                            )
+                        ) {
+                            Text("📈 " + stringResource(R.string.button_view))
+                        }
+                    }
                 }
             }
 
